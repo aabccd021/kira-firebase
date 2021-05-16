@@ -11,9 +11,9 @@
     "lib"
   ],
   "scripts": {
-    "build": "tsc",
-    "coverage": "yarn test --coverage",
-    "lint": "eslint . --ext ts"
+    "build": "tsc --build tsconfig.build.json",
+    "lint": "eslint . --ext ts",
+    "test": "jest --coverage"
   },
   "dependencies": {
     "assert-never": "^1.2.1",
@@ -68,8 +68,17 @@
       "prettier"
     ],
     "ignorePatterns": [
-      "**/*.d.ts",
-      "/functions"
+      "lib/**"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "test/**/*"
+        ],
+        "rules": {
+          "functional/functional-parameters": "off"
+        }
+      }
     ],
     "rules": {
       "@typescript-eslint/no-unused-vars": "off",

@@ -3,11 +3,9 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
-    "serve": "npm run build && firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
-    "logs": "firebase functions:log",
-    "test": "yarn build && firebase emulators:exec --project demo-kira --only firestore,functions \"yarn jest\""
+    "serve": "yarn build && firebase emulators:start --project demo-kira --only firestore,functions",
+    "test": "yarn build && firebase emulators:exec --project demo-kira --only firestore,functions \"yarn jest\"",
+    "test:client-js": "yarn build && firebase emulators:exec --project demo-kira --only firestore,functions \"cd ../../client-js && yarn test\""
   },
   "engines": {
     "node": "12"
