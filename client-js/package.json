@@ -1,13 +1,10 @@
 {
-  "name": "kira-firebase-server",
+  "name": "kira-firebase-client",
   "version": "0.1.0",
-  "description": "Firebase Functions Trigger for Kira",
+  "description": "Firebase Client for Kira",
   "repository": "git@github.com:aabccd021/kira-firebase.git",
   "author": "aabccd021 <aabccd021@gmail.com>",
   "license": "MIT",
-  "engines": {
-    "node": "12"
-  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
@@ -20,10 +17,8 @@
   },
   "dependencies": {
     "assert-never": "^1.2.1",
-    "firebase-admin": "^9.6.0",
-    "firebase-functions": "^3.13.2",
-    "kira-nosql": "^0.1.7",
-    "lodash": "^4.17.21"
+    "firebase": "9.0.0-beta.1",
+    "kira-client": "^0.1.1"
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",
