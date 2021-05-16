@@ -1,0 +1,13 @@
+{
+  "name": "kira-firebase",
+  "version": "0.1.0",
+  "repository": "git@github.com:aabccd021/kira-firebase.git",
+  "author": "aabccd021 <aabccd021@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "emulator:install": "cd test/functions && yarn install",
+    "emulator:prepare": "cd server && yarn build && cd .. && rm -rf test/functions/node_modules/kira-firebase-server && cp -r server/lib test/functions/node_modules/kira-firebase-server",
+    "test": "yarn emulator:prepare && cd test/functions && yarn test"
+  }
+}

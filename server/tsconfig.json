@@ -3,9 +3,6 @@
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
-    "lib": [
-      "es2020"
-    ],
     "module": "commonjs",
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
@@ -13,14 +10,15 @@
     "noPropertyAccessFromIndexSignature": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "outDir": ".",
-    "rootDir": "src",
+    "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "target": "es2017",
+    "lib": [
+      "ESNext"
+    ],
   },
-  "exclude": [
-    "functions",
-    "server"
+  "include": [
+    "src"
   ]
 }

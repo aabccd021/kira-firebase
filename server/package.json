@@ -1,5 +1,5 @@
 {
-  "name": "kira-firebase",
+  "name": "kira-firebase-server",
   "version": "0.1.0",
   "repository": "git@github.com:aabccd021/kira-server-firebase.git",
   "author": "aabccd021 <aabccd021@gmail.com>",
@@ -7,17 +7,15 @@
   "engines": {
     "node": "12"
   },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
-    "server"
+    "lib"
   ],
   "scripts": {
     "build": "tsc",
     "coverage": "yarn test --coverage",
-    "lint": "eslint . --ext ts",
-    "functions:install": "cd functions && yarn install",
-    "functions:update-dep": "yarn build && rm -rf functions/node_modules/kira-firebase && mkdir -p functions/node_modules/kira-firebase/server && cp -r server functions/node_modules/kira-firebase",
-    "test": "yarn test:functions",
-    "test:functions": "yarn functions:update-dep && cd functions && yarn test"
+    "lint": "eslint . --ext ts"
   },
   "dependencies": {
     "assert-never": "^1.2.1",

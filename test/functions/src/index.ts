@@ -1,5 +1,5 @@
 import { getApp } from './db';
-import { getTriggers_1 as getTriggers } from 'kira-firebase/server';
+import { getTriggers_1 as getTriggers } from 'kira-firebase-server';
 
 export const kira = getTriggers({
   firestore: getApp().firestore(),

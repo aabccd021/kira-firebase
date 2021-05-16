@@ -5341,7 +5341,7 @@ kira-core@^0.3.8:
   resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.8.tgz#421140f62a2a1b9fb49a53c7a8f79340ed77c489"
   integrity sha512-IQFvbit0enc98ZYvhacFZemj38V1UgehK8tKyhkcxE+1p16ehD6woz+mLw3kDPOQl0LP+BT+lIp4/7l0DAxw4A==
 
-kira-firebase@./..:
+kira-firebase-server@../../server:
   version "0.1.0"
   dependencies:
     assert-never "^1.2.1"
