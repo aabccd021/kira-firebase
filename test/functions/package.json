@@ -1,0 +1,97 @@
+{
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts .",
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "logs": "firebase functions:log",
+    "test": "yarn build && firebase emulators:exec --project demo-kira --only firestore,functions \"yarn jest\""
+  },
+  "engines": {
+    "node": "12"
+  },
+  "main": "lib/src/index.js",
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.ts"
+    ]
+  },
+  "dependencies": {
+    "firebase-admin": "^9.2.0",
+    "firebase-functions": "^3.11.0",
+    "kira-firebase": "./.."
+  },
+  "devDependencies": {
+    "@firebase/testing": "^0.20.11",
+    "@types/jest": "^26.0.23",
+    "@typescript-eslint/eslint-plugin": "^4.18.0",
+    "@typescript-eslint/parser": "^4.18.0",
+    "eslint": "^7.6.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jest": "^24.3.6",
+    "firebase-functions-test": "^0.2.0",
+    "firebase-tools": "^9.10.0",
+    "jest": "^26.6.3",
+    "prettier": "^2.2.1",
+    "ts-jest": "^26.5.5",
+    "typescript": "^4.2.4"
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "env": {
+      "es6": true,
+      "jest/globals": true,
+      "node": true
+    },
+    "plugins": [
+      "@typescript-eslint",
+      "jest",
+      "import"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:import/errors",
+      "plugin:import/warnings",
+      "plugin:import/typescript",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:jest/recommended",
+      "plugin:prettier/recommended",
+      "prettier"
+    ],
+    "parserOptions": {
+      "project": [
+        "tsconfig.json",
+        "tsconfig.dev.json"
+      ],
+      "sourceType": "module"
+    },
+    "ignorePatterns": [
+      "/lib/**/*"
+    ],
+    "rules": {
+      "prettier/prettier": [
+        "warn",
+        {
+          "singleQuote": true,
+          "printWidth": 100
+        }
+      ],
+      "max-len": [
+        "warn",
+        {
+          "code": 100,
+          "comments": 100,
+          "ignoreStrings": true,
+          "ignoreTemplateLiterals": true
+        }
+      ]
+    }
+  },
+  "private": true
+}

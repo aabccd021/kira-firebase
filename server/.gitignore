@@ -1,0 +1,26 @@
+# Dependency directory
+node_modules
+
+# Ignore built ts files
+lib/
+
+# Ignore ts compile temp files
+*.tsbuildinfo
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+
+# Coverage output
+.nyc_output
+coverage/
+
+# log
+*.log
+
+# build output
+/server/
