@@ -9,7 +9,7 @@
   "engines": {
     "node": "12"
   },
-  "main": "lib/src/index.js",
+  "main": "lib/index.js",
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
