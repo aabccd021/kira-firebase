@@ -3704,10 +3704,10 @@ kind-of@^6.0.0, kind-of@^6.0.2:
   resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.3.tgz#07c05034a6c349fa06e24fa35aa76db4580ce4dd"
   integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
-kira-client@^0.1.3:
-  version "0.1.3"
-  resolved "https://registry.yarnpkg.com/kira-client/-/kira-client-0.1.3.tgz#959241b2326e30623bda60f7778af1989b0f706f"
-  integrity sha512-3jqOXE9tDIXHkcPr85F8ozXSx87eStPV9fnW3lV7vS9M0ziJ7E5uujef7aJmfNYmWdfDkBb8P72TFlB6Slsf4w==
+kira-client@^0.1.8:
+  version "0.1.8"
+  resolved "https://registry.yarnpkg.com/kira-client/-/kira-client-0.1.8.tgz#bcd2c7eef9b4577985cc0b9e448a8d24d91f2319"
+  integrity sha512-pgDVWxM56jUMU7mkuh+42wpTHxNmAbXq3lSEy0ByOb3JohFChpTVcoQnpUikxInyxsToMPam95/uDpn7dmM95g==
   dependencies:
     assert-never "^1.2.1"
     kira-core "^0.3.8"
