@@ -1,5 +1,4 @@
 import 'jest-extended';
-import 'jest-chain';
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, useFirestoreEmulator } from 'firebase/firestore/lite';
