@@ -95,7 +95,10 @@ export function makeDbpReadDoc(firestore: FirebaseFirestore): DbpReadDoc<DBError
 
 export function makeDbpSetDoc(firestore: FirebaseFirestore): DbpSetDoc<DBError> {
   return async (key, ocrDocData) =>
-    setDoc(doc(firestore, DocKeyToPath(key)), ocrToFirestoreDocData(ocrDocData))
+    setDoc(doc(firestore, DocKeyToPath(key)), {
+      ...ocrToFirestoreDocData(ocrDocData),
+      _fromClient: true,
+    })
       .then<Either<undefined, DBError>>((_) => ({
         _tag: 'right',
         value: undefined,

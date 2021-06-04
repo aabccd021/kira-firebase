@@ -3,7 +3,7 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
-    "serve": "yarn build && firebase emulators:start --project demo-kira --only firestore,functions",
+    "emulator:start": "yarn build && firebase emulators:start --project demo-kira --only firestore,functions",
     "emulator:exec": "yarn build && firebase emulators:exec --project demo-kira --only firestore,functions "
   },
   "engines": {

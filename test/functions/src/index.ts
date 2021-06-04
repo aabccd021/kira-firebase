@@ -1,5 +1,12 @@
 import { getApp } from './db';
-import { getTriggers_1 as getTriggers } from 'kira-firebase-server';
+import { getTriggers_1 as getTriggers, shouldRunTrigger } from 'kira-firebase-server';
+import * as functions from 'firebase-functions'
+
+export const finiteUpdate = functions.firestore.document('finite/{docId}').onUpdate(async (snapshot) => {
+  if (await shouldRunTrigger(snapshot.after)) {
+    await snapshot.after.ref.update({name: 'Ms. ' + snapshot.after.data()['name']})
+  }
+})
 
 export const kira = getTriggers({
   firestore: getApp().firestore(),

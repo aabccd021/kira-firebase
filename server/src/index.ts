@@ -3,6 +3,8 @@ import { Schema_1, Schema_2, schemaToActions_1, schemaToActions_2 } from 'kira-n
 import { GetTriggers } from './type';
 import { getTriggers } from './util';
 
+export { shouldRunTrigger } from './util';
+
 export const getTriggers_1: GetTriggers<Schema_1> = ({ schema, ...context }) => {
   return getTriggers({ ...context, schema, actions: schemaToActions_1(schema) });
 };

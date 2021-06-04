@@ -71,6 +71,25 @@ function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
 
 type GetDocError = Error;
 
+/**
+ * Prevent infinite loop
+ */
+export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
+  const fromClientFlag = '_fromClient';
+  // Stop functions if has client flag
+  if (snapshot.data()?.[fromClientFlag] !== true) {
+    return false;
+  }
+  // Remove flag
+  await snapshot.ref.set(
+    {
+      [fromClientFlag]: admin.firestore.FieldValue.delete(),
+    },
+    { merge: true }
+  );
+  return true;
+}
+
 export function getTriggers<S extends Schema>({
   actions,
   firestore,
@@ -123,37 +142,43 @@ export function getTriggers<S extends Schema>({
         colName,
         {
           onCreate: colOnCreateActions
-            ? documentBuilder.onCreate((snapshot) =>
-                handleTrigger({
-                  getDoc,
-                  actions: colOnCreateActions,
-                  writeDoc,
-                  snapshot: firestoreToSnapshot(snapshot),
-                })
-              )
+            ? documentBuilder.onCreate(async (snapshot) => {
+                if (await shouldRunTrigger(snapshot)) {
+                  await handleTrigger({
+                    getDoc,
+                    actions: colOnCreateActions,
+                    writeDoc,
+                    snapshot: firestoreToSnapshot(snapshot),
+                  });
+                }
+              })
             : undefined,
           onDelete: colOnDeleteActions
-            ? documentBuilder.onDelete((snapshot) =>
-                handleTrigger({
-                  getDoc,
-                  actions: colOnDeleteActions,
-                  writeDoc,
-                  snapshot: firestoreToSnapshot(snapshot),
-                })
-              )
+            ? documentBuilder.onDelete(async (snapshot) => {
+                if (await shouldRunTrigger(snapshot)) {
+                  await handleTrigger({
+                    getDoc,
+                    actions: colOnDeleteActions,
+                    writeDoc,
+                    snapshot: firestoreToSnapshot(snapshot),
+                  });
+                }
+              })
             : undefined,
           onUpdate: colOnUpdateActions
-            ? documentBuilder.onUpdate((firestoreSnapshot) =>
-                handleTrigger({
-                  getDoc,
-                  actions: colOnUpdateActions,
-                  writeDoc,
-                  snapshot: {
-                    before: firestoreToSnapshot(firestoreSnapshot.before),
-                    after: firestoreToSnapshot(firestoreSnapshot.after),
-                  },
-                })
-              )
+            ? documentBuilder.onUpdate(async (snapshot) => {
+                if (await shouldRunTrigger(snapshot.after)) {
+                  await handleTrigger({
+                    getDoc,
+                    actions: colOnUpdateActions,
+                    writeDoc,
+                    snapshot: {
+                      before: firestoreToSnapshot(snapshot.before),
+                      after: firestoreToSnapshot(snapshot.after),
+                    },
+                  });
+                }
+              })
             : undefined,
         },
       ];

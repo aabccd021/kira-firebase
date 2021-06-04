@@ -1,20 +1,12 @@
 import 'jest-extended';
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore, useFirestoreEmulator } from 'firebase/firestore/lite';
-
 import { makeDbpReadDoc, makeDbpSetDoc } from '../src/db';
+import { firestore, sleep } from './util';
 
-const sleep = (milli: number) => new Promise((res) => setTimeout(res, milli));
+const dbpReadDoc = makeDbpReadDoc(firestore);
+const dbpSetDoc = makeDbpSetDoc(firestore);
 
 describe('js client', () => {
-  const firebaseApp = initializeApp({ projectId: 'demo-kira' });
-
-  useFirestoreEmulator(getFirestore(firebaseApp), 'localhost', 8080);
-
-  const dbpReadDoc = makeDbpReadDoc(getFirestore(firebaseApp));
-  const dbpSetDoc = makeDbpSetDoc(getFirestore(firebaseApp));
-
   it('can handle scenario 1', async () => {
     // create user1
     await dbpSetDoc(
@@ -32,11 +24,10 @@ describe('js client', () => {
     await sleep(5000);
 
     // expect trigger working on user1
-    const user1_0 = await dbpReadDoc({ collection: 'user', id: 'user1' });
-    expect(user1_0._tag).toStrictEqual('right');
-    expect(user1_0).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'user', id: 'user1' })).toStrictEqual({
       _tag: 'right',
       value: {
+        state: 'exists',
         data: {
           displayName: 'user1',
           memeImageCreatedCount: 0,
@@ -51,7 +42,6 @@ describe('js client', () => {
               new Date().getTime() - x.getTime() > 0
           ),
         },
-        state: 'exists',
       },
     });
 
@@ -72,8 +62,7 @@ describe('js client', () => {
     await sleep(5000);
 
     // expect trigger working on image1
-    const image1_0 = await dbpReadDoc({ collection: 'memeImage', id: 'image1' });
-    expect(image1_0).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'image1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
@@ -98,8 +87,7 @@ describe('js client', () => {
     });
 
     // expect trigger working on user1
-    const user1_1 = await dbpReadDoc({ collection: 'user', id: 'user1' });
-    expect(user1_1).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'user', id: 'user1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
@@ -139,8 +127,7 @@ describe('js client', () => {
     await sleep(5000);
 
     // expect triggers work on meme1
-    const meme1 = await dbpReadDoc({ collection: 'meme', id: 'meme1' });
-    expect(meme1).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'meme', id: 'meme1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
@@ -168,8 +155,7 @@ describe('js client', () => {
     });
 
     // expect triggers work on image1
-    const image1_1 = await dbpReadDoc({ collection: 'memeImage', id: 'image1' });
-    expect(image1_1).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'image1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
@@ -194,8 +180,7 @@ describe('js client', () => {
     });
 
     // expect triggers work on user1
-    const user1_2 = await dbpReadDoc({ collection: 'user', id: 'user1' });
-    expect(user1_2).toStrictEqual({
+    expect(await dbpReadDoc({ collection: 'user', id: 'user1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
@@ -217,3 +202,4 @@ describe('js client', () => {
     });
   }, 20000);
 });
+
