@@ -1,7 +1,7 @@
 import assertNever from 'assert-never';
-import { firestore } from 'firebase-admin';
-import { region } from 'firebase-functions';
-import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
+import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import {
   Actions,
   Either,
@@ -38,7 +38,7 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
       if (typeof field === 'number') {
         return [fieldName, { type: 'number', value: field }];
       }
-      if (field instanceof firestore.Timestamp) {
+      if (field instanceof admin.firestore.Timestamp) {
         return [fieldName, { type: 'date', value: field.toDate() }];
       }
       return [
@@ -56,10 +56,10 @@ function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
         return [fieldName, field.value];
       }
       if (field.type === 'increment') {
-        return [fieldName, firestore.FieldValue.increment(field.incrementValue)];
+        return [fieldName, admin.firestore.FieldValue.increment(field.incrementValue)];
       }
       if (field.type === 'creationTime') {
-        return [fieldName, firestore.FieldValue.serverTimestamp()];
+        return [fieldName, admin.firestore.FieldValue.serverTimestamp()];
       }
       if (field.type === 'ref') {
         return [fieldName, writeToFirestoreDocData(field.value)];
@@ -71,21 +71,27 @@ function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
 
 type GetDocError = Error;
 
-export function getTriggers<S extends Schema>(
-  actions: Actions<GetDocError>,
-  firestore: firestore.Firestore,
-  schema: S
-): FirebaseTriggerDict {
+export function getTriggers<S extends Schema>({
+  actions,
+  firestore,
+  schema,
+  triggerRegions,
+}: {
+  readonly actions: Actions<GetDocError>;
+  readonly firestore: admin.firestore.Firestore;
+  readonly schema: S;
+  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
+}): FirebaseTriggerDict {
   const getDoc: GetDoc<GetDocError> = async ({ col, id }) => {
     const docSnapshot = await firestore
       .collection(col)
       .doc(id)
       .get()
-      .then<Either<firestore.DocumentData | undefined, Error>>((docSnapshot) => ({
+      .then<Either<admin.firestore.DocumentData | undefined, Error>>((docSnapshot) => ({
         tag: 'right',
         value: docSnapshot.data(),
       }))
-      .catch<Either<firestore.DocumentData | undefined, Error>>((error) => ({
+      .catch<Either<admin.firestore.DocumentData | undefined, Error>>((error) => ({
         tag: 'left',
         error,
       }));
@@ -95,7 +101,7 @@ export function getTriggers<S extends Schema>(
     return { tag: 'right', value: { id, data: firestoreToReadDocData(docSnapshot.value) } };
   };
 
-  const writeDoc: WriteDoc<firestore.WriteResult> = async ({ col, id }, writeDocData) => {
+  const writeDoc: WriteDoc<admin.firestore.WriteResult> = async ({ col, id }, writeDocData) => {
     return firestore
       .collection(col)
       .doc(id)
@@ -104,7 +110,11 @@ export function getTriggers<S extends Schema>(
 
   return Object.fromEntries(
     Object.entries(schema.cols).map(([colName]) => {
-      const document = region('asia-southeast2').firestore.document(`${colName}/{docId}`);
+      const documentKey = `${colName}/{docId}`;
+
+      const documentBuilder: DocumentBuilder = triggerRegions
+        ? functions.region(...triggerRegions).firestore.document(documentKey)
+        : functions.firestore.document(documentKey);
 
       const colOnCreateActions = actions.onCreate?.[colName];
       const colOnUpdateActions = actions.onUpdate?.[colName];
@@ -113,7 +123,7 @@ export function getTriggers<S extends Schema>(
         colName,
         {
           onCreate: colOnCreateActions
-            ? document.onCreate((snapshot) =>
+            ? documentBuilder.onCreate((snapshot) =>
                 handleTrigger({
                   getDoc,
                   actions: colOnCreateActions,
@@ -123,7 +133,7 @@ export function getTriggers<S extends Schema>(
               )
             : undefined,
           onDelete: colOnDeleteActions
-            ? document.onDelete((snapshot) =>
+            ? documentBuilder.onDelete((snapshot) =>
                 handleTrigger({
                   getDoc,
                   actions: colOnDeleteActions,
@@ -133,7 +143,7 @@ export function getTriggers<S extends Schema>(
               )
             : undefined,
           onUpdate: colOnUpdateActions
-            ? document.onUpdate((firestoreSnapshot) =>
+            ? documentBuilder.onUpdate((firestoreSnapshot) =>
                 handleTrigger({
                   getDoc,
                   actions: colOnUpdateActions,

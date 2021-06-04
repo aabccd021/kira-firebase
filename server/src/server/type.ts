@@ -1,5 +1,4 @@
-import { firestore } from 'firebase-admin';
-import { Change } from 'firebase-functions';
+import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import { Schema } from 'kira-nosql';
@@ -21,7 +20,7 @@ export type DocumentField =
   | Dictionary<DocumentField>;
 export type Document = Dictionary<DocumentField>;
 
-export type Snapshot = QueryDocumentSnapshot | Change<QueryDocumentSnapshot>;
+export type Snapshot = QueryDocumentSnapshot | functions.Change<QueryDocumentSnapshot>;
 
 export type Query<T extends string = string> = {
   readonly col: T;
@@ -39,11 +38,12 @@ export type FirebaseTriggerDict = Dictionary<{
 }>;
 
 export type GetTriggers<S extends Schema> = (args: {
-  readonly firestore: firestore.Firestore;
+  readonly firestore: admin.firestore.Firestore;
   readonly schema: S;
+  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
 }) => FirebaseTriggerDict;
 
-export type FirestorePrimitiveField = number | string | firestore.Timestamp;
+export type FirestorePrimitiveField = number | string | admin.firestore.Timestamp;
 
 export type FirestoreReadDocData = {
   readonly [key: string]:
@@ -54,7 +54,7 @@ export type FirestoreReadDocData = {
 export type FirestoreWriteField =
   | FirestoreWriteDocData
   | FirestorePrimitiveField
-  | firestore.FieldValue
+  | admin.firestore.FieldValue
   | Date;
 
 export type FirestoreWriteDocData = { readonly [key: string]: FirestoreWriteField };
