@@ -3,15 +3,12 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import {
-  Actions,
   Either,
   GetDoc,
-  handleTrigger,
   ReadDocData,
   ReadDocSnapshot,
   ReadField,
   Schema,
-  WriteDoc,
   WriteDocData,
 } from 'kira-nosql';
 
@@ -29,7 +26,11 @@ function firestoreToSnapshot(docSnapshot: QueryDocumentSnapshot): ReadDocSnapsho
   };
 }
 
-function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDocData {
+function isStringArray(arr: unknown): arr is readonly string[] {
+  return Array.isArray(arr) && typeof arr[0] === 'string';
+}
+
+export function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDocData {
   return Object.fromEntries(
     Object.entries(data ?? {}).map<readonly [string, ReadField]>(([fieldName, field]) => {
       if (typeof field === 'string') {
@@ -41,6 +42,9 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
       if (field instanceof admin.firestore.Timestamp) {
         return [fieldName, { type: 'date', value: field.toDate() }];
       }
+      if (isStringArray(field)) {
+        return [fieldName, { type: 'stringArray', value: field }];
+      }
       return [
         fieldName,
         { type: 'ref', value: { id: field.id, data: firestoreToReadDocData(field) } },
@@ -49,10 +53,15 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
   );
 }
 
-function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
+export function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
   return Object.fromEntries(
     Object.entries(data).map<readonly [string, FirestoreWriteField]>(([fieldName, field]) => {
-      if (field.type === 'number' || field.type === 'string' || field.type === 'date') {
+      if (
+        field.type === 'number' ||
+        field.type === 'string' ||
+        field.type === 'date' ||
+        field.type === 'stringArray'
+      ) {
         return [fieldName, field.value];
       }
       if (field.type === 'increment') {
@@ -91,12 +100,10 @@ export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise
 }
 
 export function getTriggers<S extends Schema>({
-  actions,
   firestore,
   schema,
   triggerRegions,
 }: {
-  readonly actions: Actions<GetDocError>;
   readonly firestore: admin.firestore.Firestore;
   readonly schema: S;
   readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
@@ -129,11 +136,11 @@ export function getTriggers<S extends Schema>({
 
   return Object.fromEntries(
     Object.entries(schema.cols).map(([colName]) => {
-      const documentKey = `${colName}/{docId}`;
+      const docKey = `${colName}/{docId}`;
 
-      const documentBuilder: DocumentBuilder = triggerRegions
-        ? functions.region(...triggerRegions).firestore.document(documentKey)
-        : functions.firestore.document(documentKey);
+      const colTrigger: DocumentBuilder = triggerRegions
+        ? functions.region(...triggerRegions).firestore.document(docKey)
+        : functions.firestore.document(docKey);
 
       const colOnCreateActions = actions.onCreate?.[colName];
       const colOnUpdateActions = actions.onUpdate?.[colName];
@@ -142,7 +149,7 @@ export function getTriggers<S extends Schema>({
         colName,
         {
           onCreate: colOnCreateActions
-            ? documentBuilder.onCreate(async (snapshot) => {
+            ? colTrigger.onCreate(async (snapshot) => {
                 if (await shouldRunTrigger(snapshot)) {
                   await handleTrigger({
                     getDoc,
@@ -154,19 +161,17 @@ export function getTriggers<S extends Schema>({
               })
             : undefined,
           onDelete: colOnDeleteActions
-            ? documentBuilder.onDelete(async (snapshot) => {
-                if (await shouldRunTrigger(snapshot)) {
-                  await handleTrigger({
-                    getDoc,
-                    actions: colOnDeleteActions,
-                    writeDoc,
-                    snapshot: firestoreToSnapshot(snapshot),
-                  });
-                }
-              })
+            ? colTrigger.onDelete((snapshot) =>
+                handleTrigger({
+                  getDoc,
+                  actions: colOnDeleteActions,
+                  writeDoc,
+                  snapshot: firestoreToSnapshot(snapshot),
+                })
+              )
             : undefined,
           onUpdate: colOnUpdateActions
-            ? documentBuilder.onUpdate(async (snapshot) => {
+            ? colTrigger.onUpdate(async (snapshot) => {
                 if (await shouldRunTrigger(snapshot.after)) {
                   await handleTrigger({
                     getDoc,

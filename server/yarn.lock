@@ -3923,14 +3923,14 @@ kind-of@^6.0.0, kind-of@^6.0.2:
   integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
 kira-core@^0.3.8:
-  version "0.3.8"
-  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.8.tgz#421140f62a2a1b9fb49a53c7a8f79340ed77c489"
-  integrity sha512-IQFvbit0enc98ZYvhacFZemj38V1UgehK8tKyhkcxE+1p16ehD6woz+mLw3kDPOQl0LP+BT+lIp4/7l0DAxw4A==
+  version "0.3.13"
+  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.13.tgz#4c713acd6bd447225f5438d1323404e84ea541ae"
+  integrity sha512-5zIniBttwYsr2Hqi996X9bD0BYZf0X0nY8E7vXdwcUK58arXbnJ1niuvswz6w3pweHPywH5fS73l6Ov6xLEOGQ==
 
-kira-nosql@^0.1.8:
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.8.tgz#5c4a1bc87d5be7969c661a0d127b738917148ac6"
-  integrity sha512-au8t8G9Lv5DI6IIHfAGrzX/zc0rUHTRgy4BcaAPpsJWHxyKd5kNDWF0PS2D03VBv5wHBvgR7AvxG9fjQx/yoRA==
+kira-nosql@^0.1.9:
+  version "0.1.9"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.9.tgz#5ff117e4b382a7c1fa099030796c42258b58ae66"
+  integrity sha512-+S61A5BMtOOS/Jxc8U5Bg1YJSzUwcaXepXa47V11gV/kl87SgwWvewnK+hJDrE7oicDpvl0ZrVHLIN8DOZkmjA==
   dependencies:
     assert-never "^1.2.1"
     kira-core "^0.3.8"

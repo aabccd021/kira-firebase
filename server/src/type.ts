@@ -43,7 +43,11 @@ export type GetTriggers<S extends Schema> = (args: {
   readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
 }) => FirebaseTriggerDict;
 
-export type FirestorePrimitiveField = number | string | admin.firestore.Timestamp;
+export type FirestorePrimitiveField =
+  | number
+  | string
+  | admin.firestore.Timestamp
+  | readonly string[];
 
 export type FirestoreReadDocData = {
   readonly [key: string]:
