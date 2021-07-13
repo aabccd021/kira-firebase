@@ -6,8 +6,8 @@ const projectId = 'demo-kira';
 admin.initializeApp({ projectId });
 
 export function getApp(): admin.app.App {
-  process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-  process.env.FIREBASE_FIRESTORE_EMULATOR_ADDRESS = 'localhost:8080';
+  process.env['FIRESTORE_EMULATOR_HOST'] = 'localhost:8080';
+  process.env['FIREBASE_FIRESTORE_EMULATOR_ADDRESS'] = 'localhost:8080';
   return admin.app();
 }
 

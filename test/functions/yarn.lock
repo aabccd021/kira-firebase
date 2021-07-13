@@ -3028,6 +3028,13 @@ eslint-plugin-jest@^24.3.6:
   dependencies:
     "@typescript-eslint/experimental-utils" "^4.0.1"
 
+eslint-plugin-prettier@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-prettier/-/eslint-plugin-prettier-3.4.0.tgz#cdbad3bf1dbd2b177e9825737fe63b476a08f0c7"
+  integrity sha512-UDK6rJT6INSfcOo545jiaOwB701uAIt2/dR7WnFQoGCVl1/EMqdANBmwUaqqQ45aXprsTGzSa39LI1PyuRBxxw==
+  dependencies:
+    prettier-linter-helpers "^1.0.0"
+
 eslint-scope@^5.0.0, eslint-scope@^5.1.1:
   version "5.1.1"
   resolved "https://registry.yarnpkg.com/eslint-scope/-/eslint-scope-5.1.1.tgz#e786e59a66cb92b3f6c1fb0d508aab174848f48c"
@@ -3364,6 +3371,11 @@ fast-deep-equal@^3.1.1:
   version "3.1.3"
   resolved "https://registry.yarnpkg.com/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz#3a7d56b559d6cbc3eb512325244e619a65c6c525"
   integrity sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==
+
+fast-diff@^1.1.2:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/fast-diff/-/fast-diff-1.2.0.tgz#73ee11982d86caaf7959828d519cfe927fac5f03"
+  integrity sha512-xJuoT5+L99XlZ8twedaRf6Ax2TgQVxvgZOYoPKqZufmJib0tL2tegPBOZb1pVNgIhlqDlA0eO0c3wBvQcmzx4w==
 
 fast-glob@^3.1.1:
   version "3.2.5"
@@ -5347,13 +5359,13 @@ kira-firebase-server@../../server:
     assert-never "^1.2.1"
     firebase-admin "^9.6.0"
     firebase-functions "^3.13.2"
-    kira-nosql "^0.1.7"
+    kira-nosql "^0.1.9"
     lodash "^4.17.21"
 
-kira-nosql@^0.1.7:
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.7.tgz#b35a0f00a50883e1b576035a34f3eacaf056135b"
-  integrity sha512-sdPlDh/hFUCVECFz6LXnAxFaBCKe2gDKKiUb1pfieVl6ciSUvX2F4I6GWgIpWdGDxkj9PtelPbLaWKf5xmqmRg==
+kira-nosql@^0.1.9:
+  version "0.1.9"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.9.tgz#5ff117e4b382a7c1fa099030796c42258b58ae66"
+  integrity sha512-+S61A5BMtOOS/Jxc8U5Bg1YJSzUwcaXepXa47V11gV/kl87SgwWvewnK+hJDrE7oicDpvl0ZrVHLIN8DOZkmjA==
   dependencies:
     assert-never "^1.2.1"
     kira-core "^0.3.8"
@@ -6501,6 +6513,13 @@ prepend-http@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/prepend-http/-/prepend-http-2.0.0.tgz#e92434bfa5ea8c19f41cdfd401d741a3c819d897"
   integrity sha1-6SQ0v6XqjBn0HN/UAddBo8gZ2Jc=
+
+prettier-linter-helpers@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/prettier-linter-helpers/-/prettier-linter-helpers-1.0.0.tgz#d23d41fe1375646de2d0104d3454a3008802cf7b"
+  integrity sha512-GbK2cP9nraSSUF9N2XwUwqfzlAFlMNYYl+ShE/V+H8a9uNl/oUqB1w2EL54Jh0OlyRSd8RfWYJ3coVS4TROP2w==
+  dependencies:
+    fast-diff "^1.1.2"
 
 prettier@^2.2.1:
   version "2.2.1"

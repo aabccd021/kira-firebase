@@ -1,14 +1,14 @@
 import { getApp } from './db';
-import { Dictionary, getTriggers, shouldRunTrigger,Field } from 'kira-firebase-server';
-import * as functions from 'firebase-functions'
+import { getTriggers, shouldRunTrigger } from 'kira-firebase-server';
+import * as functions from 'firebase-functions';
 
-export const finiteUpdate = functions.firestore.document('finite/{docId}').onUpdate(async (snapshot) => {
-  if (await shouldRunTrigger(snapshot.after)) {
-    await snapshot.after.ref.update({name: 'Ms. ' + snapshot.after.data()['name']})
-  }
-})
-
-
+export const finiteUpdate = functions.firestore
+  .document('finite/{docId}')
+  .onUpdate(async (snapshot) => {
+    if (await shouldRunTrigger(snapshot.after)) {
+      await snapshot.after.ref.update({ name: 'Ms. ' + snapshot.after.data()['name'] });
+    }
+  });
 
 export const kira = getTriggers({
   firestore: getApp().firestore(),
@@ -51,20 +51,31 @@ export const kira = getTriggers({
         groupByRef: 'memeImage',
       },
       owner: {
-        type: 'owner',
+        type: 'ref',
+        isOwner: true,
+        refedCol: 'user',
         syncFields: {
           profilePicture: true,
           displayName: true,
         },
+        thisColRefers: [
+          {
+            colName: 'meme',
+            fields: [{ name: 'meme', syncFields: {} }],
+            thisColRefers: [],
+          },
+        ],
       },
     },
     meme: {
       memeImage: {
         type: 'ref',
-        refCol: 'memeImage',
+        isOwner: false,
+        refedCol: 'memeImage',
         syncFields: {
           image: true,
         },
+        thisColRefers: [],
       },
       creationTime: {
         type: 'creationTime',
@@ -73,11 +84,14 @@ export const kira = getTriggers({
         type: 'string',
       },
       owner: {
-        type: 'owner',
+        type: 'ref',
+        isOwner: true,
+        refedCol: 'user',
         syncFields: {
           profilePicture: true,
           displayName: true,
         },
+        thisColRefers: [],
       },
     },
   },
