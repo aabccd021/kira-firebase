@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "emulator:install": "cd test/functions && yarn install",
-    "emulator:prepare": "cd server && yarn build && cd .. && rm -rf test/functions/node_modules/kira-firebase-server && cp -r server/lib test/functions/node_modules/kira-firebase-server",
+    "emulator:prepare": "cd server && yarn build && cd .. && rm -rf test/functions/node_modules/kira-firebase-server && cp -r server/lib test/functions/node_modules/kira-firebase-server && cp -r server/node_modules test/functions/node_modules/kira-firebase-server/node_modules",
     "emulator:start": "yarn emulator:prepare && cd test/functions && yarn emulator:start",
     "test:client-js": "cd client-js && yarn test",
     "test": "yarn emulator:prepare && cd test/functions && yarn emulator:exec \"cd ../.. && yarn test:client-js\""

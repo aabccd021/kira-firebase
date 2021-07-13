@@ -22,7 +22,7 @@
     "assert-never": "^1.2.1",
     "firebase-admin": "^9.6.0",
     "firebase-functions": "^3.13.2",
-    "kira-nosql": "^0.1.9",
+    "kira-nosql": "^0.1.11",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
@@ -81,6 +81,7 @@
       "eqeqeq": "warn",
       "functional/no-conditional-statement": "off",
       "functional/no-expression-statement": "off",
+      "functional/no-return-void": "off",
       "import/no-cycle": "warn",
       "no-null/no-null": "warn",
       "no-unused-expressions": "off",

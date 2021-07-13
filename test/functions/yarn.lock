@@ -3511,7 +3511,7 @@ find-up@^4.0.0, find-up@^4.1.0:
     locate-path "^5.0.0"
     path-exists "^4.0.0"
 
-firebase-admin@^9.2.0, firebase-admin@^9.6.0:
+firebase-admin@^9.6.0:
   version "9.7.0"
   resolved "https://registry.yarnpkg.com/firebase-admin/-/firebase-admin-9.7.0.tgz#c5fde178a1f1e757373b38601eb62a8ccbcb9393"
   integrity sha512-dvxy4lK2P2BikE9lB2hj4dUXGm9tuoGRVtobXzCpk7uhi0/FuTOU1yp4IW7vlMI20fxTdm6FmCXdwUlMeSljBA==
@@ -3534,7 +3534,7 @@ firebase-functions-test@^0.2.0:
     "@types/lodash" "^4.14.104"
     lodash "^4.17.5"
 
-firebase-functions@^3.11.0, firebase-functions@^3.13.2:
+firebase-functions@^3.13.2:
   version "3.13.2"
   resolved "https://registry.yarnpkg.com/firebase-functions/-/firebase-functions-3.13.2.tgz#e5728b91a51f16f538e53c4f50497056b5702d58"
   integrity sha512-XHgAQZqA62awr4l9mNlJv6qnv5MkMkLuo+hafdW0T7IJj1PgrZtuIo5x+ib2npAcB0XhX5Sg0QR1hMYPAlfbaA==
@@ -5359,13 +5359,13 @@ kira-firebase-server@../../server:
     assert-never "^1.2.1"
     firebase-admin "^9.6.0"
     firebase-functions "^3.13.2"
-    kira-nosql "^0.1.9"
+    kira-nosql "^0.1.11"
     lodash "^4.17.21"
 
-kira-nosql@^0.1.9:
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.9.tgz#5ff117e4b382a7c1fa099030796c42258b58ae66"
-  integrity sha512-+S61A5BMtOOS/Jxc8U5Bg1YJSzUwcaXepXa47V11gV/kl87SgwWvewnK+hJDrE7oicDpvl0ZrVHLIN8DOZkmjA==
+kira-nosql@^0.1.11:
+  version "0.1.11"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.11.tgz#9510ae32c498fca0b13508419cea5b73bd0f53d9"
+  integrity sha512-EvJxvHKbokV314BAJbd7NNPAir7t3Xg2Uff7sIQQi7D+wM0A05nE26fLZMasrgWfni/6oQK9E3lBLABaUIxY1A==
   dependencies:
     assert-never "^1.2.1"
     kira-core "^0.3.8"

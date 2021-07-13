@@ -3,23 +3,23 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import {
-  DeleteDoc,
+  DataTypeError,
+  DB,
   Dictionary,
   DocKey,
   Either,
   Field,
-  GetDoc,
-  GetTransactionCommit,
-  MayFailOp,
-  MergeDoc,
+  getActionDrafts,
+  getDraft,
+  isTriggerRequired,
+  MakeDraft,
   ReadDocData,
+  ReadDocSnapshot,
   ReadField,
-  SnapshotOfTriggerType,
-  TriggerType,
+  runTrigger,
   WriteDocData,
 } from 'kira-nosql';
 
-import { makeTrigger } from './field';
 import {
   FirebaseTriggerDict,
   FirestoreReadDocData,
@@ -34,7 +34,13 @@ function isStringArray(arr: unknown): arr is readonly string[] {
 /**
  * Prevent infinite loop
  */
-export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
+export async function shouldRunTrigger({
+  snapshot,
+  // fieldValue,
+}: {
+  readonly snapshot: QueryDocumentSnapshot;
+  readonly fieldValue: FieldValue;
+}): Promise<boolean> {
   const fromClientFlag = '_fromClient';
   // Stop functions if has client flag
   if (snapshot.data()?.[fromClientFlag] !== true) {
@@ -73,8 +79,14 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
   );
 }
 
-function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
-  return Object.fromEntries(
+function writeToFirestoreDocData({
+  data,
+  fieldValue,
+}: {
+  readonly data: WriteDocData;
+  readonly fieldValue: FieldValue;
+}): FirestoreWriteDocData {
+  const x = Object.fromEntries(
     Object.entries(data).map<readonly [string, FirestoreWriteField]>(([fieldName, field]) => {
       if (
         field.type === 'number' ||
@@ -85,17 +97,27 @@ function writeToFirestoreDocData(data: WriteDocData): FirestoreWriteDocData {
         return [fieldName, field.value];
       }
       if (field.type === 'increment') {
-        return [fieldName, admin.firestore.FieldValue.increment(field.incrementValue)];
+        return [fieldName, fieldValue.increment(field.incrementValue)];
       }
       if (field.type === 'creationTime') {
-        return [fieldName, admin.firestore.FieldValue.serverTimestamp()];
+        return [fieldName, fieldValue.serverTimestamp()];
       }
       if (field.type === 'ref') {
-        return [fieldName, writeToFirestoreDocData(field.value)];
+        return [fieldName, writeToFirestoreDocData({ data: field.value, fieldValue })];
       }
       assertNever(field);
     })
   );
+  console.log('x', { x });
+  functions.logger.log('x', { x });
+  return x;
+}
+
+function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot): ReadDocSnapshot {
+  return {
+    id: snapshot.id,
+    data: firestoreToReadDocData(snapshot.data()),
+  };
 }
 
 function getDocRef({
@@ -110,102 +132,34 @@ function getDocRef({
     .doc(col.type === 'normal' ? id : `${col.referCol}_${col.referField}_${col.refedCol}_${id}`);
 }
 
-type X<T extends TriggerType, GDE, WR> = {
-  readonly getTransactionCommit?: GetTransactionCommit<T, GDE>;
-  readonly mayFailOp?: MayFailOp<T, GDE, WR>;
-};
-
-type Y<T extends TriggerType, GDE, WR> = {
-  readonly getTransactionCommits: readonly GetTransactionCommit<T, GDE>[];
-  readonly mayFailOps: readonly MayFailOp<T, GDE, WR>[];
-};
-
-function isDefined<T>(t: T | undefined): t is T {
-  return t !== undefined;
+function logResult(
+  result: Either<readonly admin.firestore.WriteResult[], Error | DataTypeError>
+): void {
+  functions.logger.log('result', result);
 }
 
-function getTCAndMFO<T extends TriggerType, GDE, WR>(
-  colsAction: readonly (X<T, GDE, WR> | undefined)[]
-): Y<T, GDE, WR> {
-  return {
-    getTransactionCommits: colsAction.map((x) => x?.getTransactionCommit).filter(isDefined),
-    mayFailOps: colsAction.map((x) => x?.mayFailOp).filter(isDefined),
-  };
-}
+type FieldValue = typeof admin.firestore.FieldValue;
 
-type DB = {
-  readonly getDoc: GetDoc<Error>;
-  readonly mergeDoc: MergeDoc<admin.firestore.WriteResult>;
-  readonly deleteDoc: DeleteDoc<admin.firestore.WriteResult>;
-};
-
-async function runTrigger<T extends TriggerType>({
-  action,
-  snapshot,
-  db,
-}: {
-  readonly action: Y<T, Error, admin.firestore.WriteResult>;
-  readonly snapshot: SnapshotOfTriggerType<T>;
-  readonly db: DB;
-}): Promise<void> {
-  const tc = await Promise.all(
-    action.getTransactionCommits.map((gtc) => gtc({ ...db, snapshot }))
-  ).then((eithers) =>
-    eithers.reduce(
-      (prev, e) => {
-        if (prev.tag === 'left') return prev;
-        if (e.tag === 'left') return e;
-        return {
-          tag: 'right',
-          value: { ...prev.value, ...e.value },
-        };
-      },
-      { tag: 'right', value: {} }
-    )
-  );
-  if (tc.tag === 'left') {
-    functions.logger.error(tc.error);
-    return;
-  }
-  await Promise.all(
-    Object.entries(tc.value).flatMap(([colName, docs]) =>
-      Object.entries(docs).map(([docId, doc]) => {
-        const key: DocKey = { col: { type: 'normal', name: colName }, id: docId };
-        if (doc.op === 'merge') return db.mergeDoc({ key, docData: doc.data });
-        if (doc.op === 'delete') return db.deleteDoc({ key });
-        assertNever(doc);
-      })
-    )
-  );
-  await Promise.all(action.mayFailOps.map((mfo) => mfo({ ...db, snapshot })));
-}
-
-function isTriggerRequired<T extends TriggerType>(
-  action: Y<T, Error, admin.firestore.WriteResult>
-): boolean {
-  return action.getTransactionCommits.length > 0 || action.mayFailOps.length > 0;
-}
-
-export function getTriggers({
+export function getFirebaseTriggers<F extends Field>({
   firestore,
+  fieldValue,
   cols,
   triggerRegions,
+  makeDraft,
 }: {
   readonly firestore: admin.firestore.Firestore;
+  readonly fieldValue: FieldValue;
+  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
   readonly version: {
     readonly 'kira-core': '0.3.8';
     readonly 'kira-firebase-server': '0.1.8';
   };
-  readonly cols: Dictionary<Dictionary<Field>>;
-  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
+  readonly cols: Dictionary<Dictionary<F>>;
+  readonly makeDraft: MakeDraft<F, Error, admin.firestore.WriteResult>;
 }): FirebaseTriggerDict {
-  const triggers = Object.entries(cols).flatMap(([colName, col]) =>
-    Object.entries(col).map(([fieldName, fieldSpec]) =>
-      makeTrigger({ colName, fieldName, fieldSpec })
-    )
-  );
+  const drafts = getDraft({ cols, makeDraft });
 
-  const db: DB = {
+  const db: DB<Error, admin.firestore.WriteResult> = {
     getDoc: async ({ key }) => {
       const docSnapshot = await getDocRef({ firestore, key })
         .get()
@@ -225,8 +179,11 @@ export function getTriggers({
         value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
       };
     },
-    mergeDoc: ({ key, docData }) =>
-      getDocRef({ firestore, key }).set(writeToFirestoreDocData(docData), { merge: true }),
+    mergeDoc: ({ key, docData }) => {
+      const ddata = writeToFirestoreDocData({ data: docData, fieldValue });
+      functions.logger.log('ddata', { ddata });
+      return getDocRef({ firestore, key }).set(ddata, { merge: true });
+    },
     deleteDoc: ({ key }) => getDocRef({ firestore, key }).delete(),
   };
 
@@ -238,57 +195,51 @@ export function getTriggers({
         ? functions.region(...triggerRegions).firestore.document(docKey)
         : functions.firestore.document(docKey);
 
-      const onCreate = getTCAndMFO(triggers.map((trigger) => trigger.onCreate?.[colName]));
-      const onUpdate = getTCAndMFO(triggers.map((trigger) => trigger.onUpdate?.[colName]));
-      const onDelete = getTCAndMFO(triggers.map((trigger) => trigger.onDelete?.[colName]));
+      const { onCreate, onUpdate, onDelete } = getActionDrafts({ drafts, colName });
 
       return [
         colName,
         {
-          onCreate: isTriggerRequired(onCreate)
-            ? colTrigger.onCreate(async (snapshot) => {
-                if (await shouldRunTrigger(snapshot)) {
+          onCreate:
+            onCreate !== undefined && isTriggerRequired(onCreate)
+              ? colTrigger.onCreate(async (snapshot) => {
+                  if (await shouldRunTrigger({ snapshot, fieldValue })) {
+                    await runTrigger({
+                      db,
+                      action: onCreate,
+                      snapshot: firestoreToSnapshot(snapshot),
+                    }).then(logResult);
+                  }
+                })
+              : undefined,
+          onUpdate:
+            onUpdate !== undefined && isTriggerRequired(onUpdate)
+              ? colTrigger.onUpdate(async (snapshot) => {
+                  if (await shouldRunTrigger({ snapshot: snapshot.after, fieldValue })) {
+                    await runTrigger({
+                      db,
+                      action: onUpdate,
+                      snapshot: {
+                        id: snapshot.after.id,
+                        before: firestoreToReadDocData(snapshot.before.data()),
+                        after: firestoreToReadDocData(snapshot.after.data()),
+                      },
+                    }).then(logResult);
+                  }
+                })
+              : undefined,
+          onDelete:
+            onDelete !== undefined && isTriggerRequired(onDelete)
+              ? colTrigger.onDelete(async (snapshot) => {
                   await runTrigger({
                     db,
-                    action: onCreate,
-                    snapshot: {
-                      id: snapshot.id,
-                      data: firestoreToReadDocData(snapshot.data()),
-                    },
-                  });
-                }
-              })
-            : undefined,
-          onUpdate: isTriggerRequired(onUpdate)
-            ? colTrigger.onUpdate(async (snapshot) => {
-                if (await shouldRunTrigger(snapshot.after)) {
-                  await runTrigger({
-                    db,
-                    action: onUpdate,
-                    snapshot: {
-                      id: snapshot.after.id,
-                      before: firestoreToReadDocData(snapshot.before.data()),
-                      after: firestoreToReadDocData(snapshot.after.data()),
-                    },
-                  });
-                }
-              })
-            : undefined,
-          onDelete: isTriggerRequired(onDelete)
-            ? colTrigger.onDelete(async (snapshot) => {
-                await runTrigger({
-                  db,
-                  action: onDelete,
-                  snapshot: {
-                    id: snapshot.id,
-                    data: firestoreToReadDocData(snapshot.data()),
-                  },
-                });
-              })
-            : undefined,
+                    action: onDelete,
+                    snapshot: firestoreToSnapshot(snapshot),
+                  }).then(logResult);
+                })
+              : undefined,
         },
       ];
     })
   );
 }
-
