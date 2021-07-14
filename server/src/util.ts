@@ -3,7 +3,8 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import {
-  DataTypeError,
+  ActionType,
+  ColDrafts,
   DB,
   Dictionary,
   DocKey,
@@ -11,12 +12,14 @@ import {
   Field,
   getActionDrafts,
   getDraft,
+  getTransactionCommit,
   isTriggerRequired,
   MakeDraft,
   ReadDocData,
   ReadDocSnapshot,
   ReadField,
-  runTrigger,
+  runMayFailOps,
+  SnapshotOfActionType,
   WriteDocData,
 } from 'kira-nosql';
 
@@ -27,6 +30,8 @@ import {
   FirestoreWriteField,
 } from './type';
 
+type FieldValue = typeof admin.firestore.FieldValue;
+
 function isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && typeof arr[0] === 'string';
 }
@@ -34,13 +39,7 @@ function isStringArray(arr: unknown): arr is readonly string[] {
 /**
  * Prevent infinite loop
  */
-export async function shouldRunTrigger({
-  snapshot,
-  // fieldValue,
-}: {
-  readonly snapshot: QueryDocumentSnapshot;
-  readonly fieldValue: FieldValue;
-}): Promise<boolean> {
+export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
   const fromClientFlag = '_fromClient';
   // Stop functions if has client flag
   if (snapshot.data()?.[fromClientFlag] !== true) {
@@ -48,9 +47,7 @@ export async function shouldRunTrigger({
   }
   // Remove flag
   await snapshot.ref.set(
-    {
-      [fromClientFlag]: admin.firestore.FieldValue.delete(),
-    },
+    { [fromClientFlag]: admin.firestore.FieldValue.delete() },
     { merge: true }
   );
   return true;
@@ -97,10 +94,13 @@ function writeToFirestoreDocData({
         return [fieldName, field.value];
       }
       if (field.type === 'increment') {
-        return [fieldName, fieldValue.increment(field.incrementValue)];
+        return [fieldName, fieldValue.increment(field.value)];
       }
       if (field.type === 'creationTime') {
         return [fieldName, fieldValue.serverTimestamp()];
+      }
+      if (field.type === 'stringArrayUnion') {
+        return [fieldName, fieldValue.arrayUnion(field.value)];
       }
       if (field.type === 'ref') {
         return [fieldName, writeToFirestoreDocData({ data: field.value, fieldValue })];
@@ -108,8 +108,6 @@ function writeToFirestoreDocData({
       assertNever(field);
     })
   );
-  console.log('x', { x });
-  functions.logger.log('x', { x });
   return x;
 }
 
@@ -122,23 +120,69 @@ function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot
 
 function getDocRef({
   firestore,
-  key: { col, id },
+  key,
 }: {
   readonly firestore: admin.firestore.Firestore;
   readonly key: DocKey;
 }): admin.firestore.DocumentReference {
-  return firestore
-    .collection(col.type === 'normal' ? col.name : '_relation')
-    .doc(col.type === 'normal' ? id : `${col.referCol}_${col.referField}_${col.refedCol}_${id}`);
+  return firestore.collection(key.col).doc(key.id);
 }
 
-function logResult(
-  result: Either<readonly admin.firestore.WriteResult[], Error | DataTypeError>
-): void {
-  functions.logger.log('result', result);
+async function runTrigger<A extends ActionType>({
+  firestore,
+  fieldValue,
+  snapshot,
+  db,
+  draft,
+}: {
+  readonly firestore: admin.firestore.Firestore;
+  readonly fieldValue: FieldValue;
+  readonly snapshot: SnapshotOfActionType<A>;
+  readonly db: DB<Error, admin.firestore.WriteResult>;
+  readonly draft: ColDrafts<A, Error, admin.firestore.WriteResult>;
+}): Promise<void> {
+  const tc = await getTransactionCommit({
+    snapshot,
+    draft,
+    getDoc: db.getDoc,
+  });
+  if (tc.tag === 'left') {
+    functions.logger.log('Failed to get transaction commit', tc);
+    return;
+  }
+  const batch = firestore.batch();
+  Object.entries(tc.value).forEach(([colName, docs]) => {
+    Object.entries(docs).forEach(([docId, docCommit]) => {
+      if (docCommit.op === 'merge') {
+        batch.set(
+          getDocRef({ firestore, key: { col: colName, id: docId } }),
+          writeToFirestoreDocData({ data: docCommit.data, fieldValue })
+        );
+        return;
+      }
+      if (docCommit.op === 'delete') {
+        batch.delete(getDocRef({ firestore, key: { col: colName, id: docId } }));
+        return;
+      }
+      assertNever(docCommit);
+    });
+  });
+  const result = await batch
+    .commit()
+    .then<Either<readonly admin.firestore.WriteResult[], unknown>>((value) => ({
+      tag: 'right',
+      value,
+    }))
+    .catch<Either<readonly admin.firestore.WriteResult[], unknown>>((error) => ({
+      tag: 'left',
+      error,
+    }));
+  if (result.tag === 'left') {
+    functions.logger.log('Failed batch write', tc);
+    return;
+  }
+  runMayFailOps({ draft, snapshot, db });
 }
-
-type FieldValue = typeof admin.firestore.FieldValue;
 
 export function getFirebaseTriggers<F extends Field>({
   firestore,
@@ -179,11 +223,10 @@ export function getFirebaseTriggers<F extends Field>({
         value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
       };
     },
-    mergeDoc: ({ key, docData }) => {
-      const ddata = writeToFirestoreDocData({ data: docData, fieldValue });
-      functions.logger.log('ddata', { ddata });
-      return getDocRef({ firestore, key }).set(ddata, { merge: true });
-    },
+    mergeDoc: ({ key, docData }) =>
+      getDocRef({ firestore, key }).set(writeToFirestoreDocData({ data: docData, fieldValue }), {
+        merge: true,
+      }),
     deleteDoc: ({ key }) => getDocRef({ firestore, key }).delete(),
   };
 
@@ -203,28 +246,32 @@ export function getFirebaseTriggers<F extends Field>({
           onCreate:
             onCreate !== undefined && isTriggerRequired(onCreate)
               ? colTrigger.onCreate(async (snapshot) => {
-                  if (await shouldRunTrigger({ snapshot, fieldValue })) {
+                  if (await shouldRunTrigger(snapshot)) {
                     await runTrigger({
                       db,
-                      action: onCreate,
+                      firestore,
+                      fieldValue,
+                      draft: onCreate,
                       snapshot: firestoreToSnapshot(snapshot),
-                    }).then(logResult);
+                    });
                   }
                 })
               : undefined,
           onUpdate:
             onUpdate !== undefined && isTriggerRequired(onUpdate)
               ? colTrigger.onUpdate(async (snapshot) => {
-                  if (await shouldRunTrigger({ snapshot: snapshot.after, fieldValue })) {
+                  if (await shouldRunTrigger(snapshot.after)) {
                     await runTrigger({
                       db,
-                      action: onUpdate,
+                      draft: onUpdate,
+                      firestore,
+                      fieldValue,
                       snapshot: {
                         id: snapshot.after.id,
                         before: firestoreToReadDocData(snapshot.before.data()),
                         after: firestoreToReadDocData(snapshot.after.data()),
                       },
-                    }).then(logResult);
+                    });
                   }
                 })
               : undefined,
@@ -233,9 +280,11 @@ export function getFirebaseTriggers<F extends Field>({
               ? colTrigger.onDelete(async (snapshot) => {
                   await runTrigger({
                     db,
-                    action: onDelete,
+                    firestore,
+                    fieldValue,
+                    draft: onDelete,
                     snapshot: firestoreToSnapshot(snapshot),
-                  }).then(logResult);
+                  });
                 })
               : undefined,
         },
