@@ -156,7 +156,8 @@ async function runTrigger<A extends ActionType>({
       if (docCommit.op === 'merge') {
         batch.set(
           getDocRef({ firestore, key: { col: colName, id: docId } }),
-          writeToFirestoreDocData({ data: docCommit.data, fieldValue })
+          writeToFirestoreDocData({ data: docCommit.data, fieldValue }),
+          { merge: true }
         );
         return;
       }
