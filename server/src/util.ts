@@ -83,7 +83,7 @@ function writeToFirestoreDocData({
   readonly data: WriteDocData;
   readonly fieldValue: FieldValue;
 }): FirestoreWriteDocData {
-  const x = Object.fromEntries(
+  return Object.fromEntries(
     Object.entries(data).map<readonly [string, FirestoreWriteField]>(([fieldName, field]) => {
       if (
         field.type === 'number' ||
@@ -108,7 +108,6 @@ function writeToFirestoreDocData({
       assertNever(field);
     })
   );
-  return x;
 }
 
 function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot): ReadDocSnapshot {
@@ -118,51 +117,50 @@ function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot
   };
 }
 
-function getDocRef({
-  firestore,
-  key,
-}: {
-  readonly firestore: admin.firestore.Firestore;
-  readonly key: DocKey;
-}): admin.firestore.DocumentReference {
-  return firestore.collection(key.col).doc(key.id);
+type TriggerContext = {
+  readonly getDocRef: GetDocRef;
+  readonly makeBatch: MakeBatch;
+  readonly db: DB<Error, admin.firestore.WriteResult>;
+  readonly fieldValue: FieldValue;
+};
+
+type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
+type MakeBatch = () => admin.firestore.WriteBatch;
+
+function makeGetDocRef(firestore: admin.firestore.Firestore): GetDocRef {
+  return (key) => firestore.collection(key.col).doc(key.id);
 }
 
 async function runTrigger<A extends ActionType>({
-  firestore,
-  fieldValue,
+  context: { makeBatch, getDocRef, db, fieldValue },
   snapshot,
-  db,
   draft,
 }: {
-  readonly firestore: admin.firestore.Firestore;
-  readonly fieldValue: FieldValue;
+  readonly context: TriggerContext;
   readonly snapshot: SnapshotOfActionType<A>;
-  readonly db: DB<Error, admin.firestore.WriteResult>;
   readonly draft: ColDrafts<A, Error, admin.firestore.WriteResult>;
 }): Promise<void> {
-  const tc = await getTransactionCommit({
+  const transactionCommit = await getTransactionCommit({
     snapshot,
     draft,
     getDoc: db.getDoc,
   });
-  if (tc.tag === 'left') {
-    functions.logger.log('Failed to get transaction commit', tc);
+  if (transactionCommit.tag === 'left') {
+    functions.logger.log('Failed to get transaction commit', transactionCommit);
     return;
   }
-  const batch = firestore.batch();
-  Object.entries(tc.value).forEach(([colName, docs]) => {
+  const batch = makeBatch();
+  Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
     Object.entries(docs).forEach(([docId, docCommit]) => {
+      const ref = getDocRef({ col: colName, id: docId });
       if (docCommit.op === 'merge') {
-        batch.set(
-          getDocRef({ firestore, key: { col: colName, id: docId } }),
-          writeToFirestoreDocData({ data: docCommit.data, fieldValue }),
-          { merge: true }
-        );
+        batch.set(ref, writeToFirestoreDocData({ data: docCommit.data, fieldValue }), {
+          merge: true,
+        });
         return;
       }
       if (docCommit.op === 'delete') {
-        batch.delete(getDocRef({ firestore, key: { col: colName, id: docId } }));
+        batch.delete(ref);
         return;
       }
       assertNever(docCommit);
@@ -179,7 +177,7 @@ async function runTrigger<A extends ActionType>({
       error,
     }));
   if (result.tag === 'left') {
-    functions.logger.log('Failed batch write', tc);
+    functions.logger.log('Failed batch write', transactionCommit);
     return;
   }
   runMayFailOps({ draft, snapshot, db });
@@ -204,31 +202,36 @@ export function getFirebaseTriggers<F extends Field>({
 }): FirebaseTriggerDict {
   const drafts = getDraft({ cols, makeDraft });
 
-  const db: DB<Error, admin.firestore.WriteResult> = {
-    getDoc: async ({ key }) => {
-      const docSnapshot = await getDocRef({ firestore, key })
-        .get()
-        .then<Either<admin.firestore.DocumentData | undefined, Error>>((docSnapshot) => ({
+  const getDocRef = makeGetDocRef(firestore);
+
+  const context: TriggerContext = {
+    getDocRef,
+    fieldValue,
+    makeBatch: () => firestore.batch(),
+    db: {
+      getDoc: async ({ key }) => {
+        const docSnapshot = await getDocRef(key)
+          .get()
+          .then<Either<admin.firestore.DocumentData | undefined, Error>>((docSnapshot) => ({
+            tag: 'right',
+            value: docSnapshot.data(),
+          }))
+          .catch<Either<admin.firestore.DocumentData | undefined, Error>>((error) => ({
+            tag: 'left',
+            error,
+          }));
+        if (docSnapshot.tag === 'left') {
+          return docSnapshot;
+        }
+        return {
           tag: 'right',
-          value: docSnapshot.data(),
-        }))
-        .catch<Either<admin.firestore.DocumentData | undefined, Error>>((error) => ({
-          tag: 'left',
-          error,
-        }));
-      if (docSnapshot.tag === 'left') {
-        return docSnapshot;
-      }
-      return {
-        tag: 'right',
-        value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
-      };
+          value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
+        };
+      },
+      mergeDoc: ({ key, docData }) =>
+        getDocRef(key).set(writeToFirestoreDocData({ data: docData, fieldValue }), { merge: true }),
+      deleteDoc: ({ key }) => getDocRef(key).delete(),
     },
-    mergeDoc: ({ key, docData }) =>
-      getDocRef({ firestore, key }).set(writeToFirestoreDocData({ data: docData, fieldValue }), {
-        merge: true,
-      }),
-    deleteDoc: ({ key }) => getDocRef({ firestore, key }).delete(),
   };
 
   return Object.fromEntries(
@@ -249,9 +252,7 @@ export function getFirebaseTriggers<F extends Field>({
               ? colTrigger.onCreate(async (snapshot) => {
                   if (await shouldRunTrigger(snapshot)) {
                     await runTrigger({
-                      db,
-                      firestore,
-                      fieldValue,
+                      context,
                       draft: onCreate,
                       snapshot: firestoreToSnapshot(snapshot),
                     });
@@ -263,10 +264,8 @@ export function getFirebaseTriggers<F extends Field>({
               ? colTrigger.onUpdate(async (snapshot) => {
                   if (await shouldRunTrigger(snapshot.after)) {
                     await runTrigger({
-                      db,
+                      context,
                       draft: onUpdate,
-                      firestore,
-                      fieldValue,
                       snapshot: {
                         id: snapshot.after.id,
                         before: firestoreToReadDocData(snapshot.before.data()),
@@ -280,9 +279,7 @@ export function getFirebaseTriggers<F extends Field>({
             onDelete !== undefined && isTriggerRequired(onDelete)
               ? colTrigger.onDelete(async (snapshot) => {
                   await runTrigger({
-                    db,
-                    firestore,
-                    fieldValue,
+                    context,
                     draft: onDelete,
                     snapshot: firestoreToSnapshot(snapshot),
                   });

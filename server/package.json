@@ -81,6 +81,7 @@
       "eqeqeq": "warn",
       "functional/no-conditional-statement": "off",
       "functional/no-expression-statement": "off",
+      "functional/functional-parameters": "off",
       "functional/no-return-void": "off",
       "import/no-cycle": "warn",
       "no-null/no-null": "warn",
