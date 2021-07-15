@@ -3983,10 +3983,10 @@ kira-core@^0.3.8:
   resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.13.tgz#4c713acd6bd447225f5438d1323404e84ea541ae"
   integrity sha512-5zIniBttwYsr2Hqi996X9bD0BYZf0X0nY8E7vXdwcUK58arXbnJ1niuvswz6w3pweHPywH5fS73l6Ov6xLEOGQ==
 
-kira-nosql@^0.1.12:
-  version "0.1.12"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.12.tgz#677ba25ef7cdef22db0a9221f83db428b3b84899"
-  integrity sha512-1XQ4m3Pf6s5vWqcdFCwOdoyNO3MsEhxsJe1Ahm65BDsmlMPJzciL4BH8MOOF8kUdhxdeypiapP+6X0JSbOn7jg==
+kira-nosql@^0.1.15:
+  version "0.1.15"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.15.tgz#53a6ea6966c34a42fa97d28e018ab9592c0bf182"
+  integrity sha512-sZBig75ngyA/farmYVzzEqyFYaOXqtt36OH1/wZWVXkZeiLnBmyRHKFOW7jw7aHxCog0KK3LC2yo9fK3yf0nYA==
   dependencies:
     assert-never "^1.2.1"
     kira-core "^0.3.8"

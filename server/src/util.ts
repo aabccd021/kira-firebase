@@ -18,19 +18,23 @@ import {
   ReadDocData,
   ReadDocSnapshot,
   ReadField,
+  RefWriteField,
   runMayFailOps,
   SnapshotOfActionType,
   WriteDocData,
+  WriteField,
 } from 'kira-nosql';
 
 import {
   FirebaseTriggerDict,
   FirestoreReadDocData,
-  FirestoreWriteDocData,
-  FirestoreWriteField,
+  FirestoreSetDocData,
+  FirestoreSetField,
+  FirestoreUpdateDocData,
+  FirestoreUpdateField,
 } from './type';
 
-type FieldValue = typeof admin.firestore.FieldValue;
+type FirestoreFieldValue = typeof admin.firestore.FieldValue;
 
 function isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && typeof arr[0] === 'string';
@@ -40,16 +44,13 @@ function isStringArray(arr: unknown): arr is readonly string[] {
  * Prevent infinite loop
  */
 export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
-  const fromClientFlag = '_fromClient';
+  const FROM_CLIENT_FLAG = '_fromClient';
   // Stop functions if has client flag
-  if (snapshot.data()?.[fromClientFlag] !== true) {
+  if (snapshot.data()?.[FROM_CLIENT_FLAG] !== true) {
     return false;
   }
   // Remove flag
-  await snapshot.ref.set(
-    { [fromClientFlag]: admin.firestore.FieldValue.delete() },
-    { merge: true }
-  );
+  await snapshot.ref.update({ [FROM_CLIENT_FLAG]: admin.firestore.FieldValue.delete() });
   return true;
 }
 
@@ -76,38 +77,87 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
   );
 }
 
-function writeToFirestoreDocData({
+function writeToFirestoreSetField({
+  field,
+  firestoreFieldValue,
+}: {
+  readonly field: WriteField;
+  readonly firestoreFieldValue: FirestoreFieldValue;
+}): FirestoreSetField {
+  if (field.type === 'ref') {
+    return writeToFirestoreSetDocData({ data: field.value, firestoreFieldValue });
+  }
+  return writeToFirestoreUpdateField({ field, firestoreFieldValue });
+}
+
+function writeToFirestoreUpdateField({
+  field,
+  firestoreFieldValue,
+}: {
+  readonly field: Exclude<WriteField, RefWriteField>;
+  readonly firestoreFieldValue: FirestoreFieldValue;
+}): FirestoreUpdateField {
+  if (
+    field.type === 'number' ||
+    field.type === 'string' ||
+    field.type === 'date' ||
+    field.type === 'stringArray'
+  ) {
+    return field.value;
+  }
+  if (field.type === 'increment') {
+    return firestoreFieldValue.increment(field.value);
+  }
+  if (field.type === 'creationTime') {
+    return firestoreFieldValue.serverTimestamp();
+  }
+  if (field.type === 'stringArrayUnion') {
+    return firestoreFieldValue.arrayUnion(field.value);
+  }
+  if (field.type === 'stringArrayRemove') {
+    return firestoreFieldValue.arrayRemove(field.value);
+  }
+  assertNever(field);
+}
+
+function writeToFirestoreSetDocData({
   data,
-  fieldValue,
+  firestoreFieldValue,
 }: {
   readonly data: WriteDocData;
-  readonly fieldValue: FieldValue;
-}): FirestoreWriteDocData {
+  readonly firestoreFieldValue: FirestoreFieldValue;
+}): FirestoreSetDocData {
   return Object.fromEntries(
-    Object.entries(data).map<readonly [string, FirestoreWriteField]>(([fieldName, field]) => {
-      if (
-        field.type === 'number' ||
-        field.type === 'string' ||
-        field.type === 'date' ||
-        field.type === 'stringArray'
-      ) {
-        return [fieldName, field.value];
-      }
-      if (field.type === 'increment') {
-        return [fieldName, fieldValue.increment(field.value)];
-      }
-      if (field.type === 'creationTime') {
-        return [fieldName, fieldValue.serverTimestamp()];
-      }
-      if (field.type === 'stringArrayUnion') {
-        return [fieldName, fieldValue.arrayUnion(field.value)];
-      }
-      if (field.type === 'ref') {
-        return [fieldName, writeToFirestoreDocData({ data: field.value, fieldValue })];
-      }
-      assertNever(field);
-    })
+    Object.entries(data).map<readonly [string, FirestoreSetField]>(([fieldName, field]) => [
+      fieldName,
+      writeToFirestoreSetField({ field, firestoreFieldValue }),
+    ])
   );
+}
+
+function writeToFirestoreUpdateDocData({
+  data,
+  firestoreFieldValue,
+}: {
+  readonly data: WriteDocData;
+  readonly firestoreFieldValue: FirestoreFieldValue;
+}): FirestoreUpdateDocData {
+  return Object.entries(data).reduce<FirestoreUpdateDocData>((prev, [fieldName, field]) => {
+    if (field.type === 'ref') {
+      return {
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(
+            writeToFirestoreUpdateDocData({ data: field.value, firestoreFieldValue })
+          ).map(([subFieldName, subField]) => [`${fieldName}.${subFieldName}`, subField])
+        ),
+      };
+    }
+    return {
+      ...prev,
+      [fieldName]: writeToFirestoreUpdateField({ field, firestoreFieldValue }),
+    };
+  }, {});
 }
 
 function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot): ReadDocSnapshot {
@@ -121,18 +171,14 @@ type TriggerContext = {
   readonly getDocRef: GetDocRef;
   readonly makeBatch: MakeBatch;
   readonly db: DB<Error, admin.firestore.WriteResult>;
-  readonly fieldValue: FieldValue;
+  readonly firestoreFieldValue: FirestoreFieldValue;
 };
 
 type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
 type MakeBatch = () => admin.firestore.WriteBatch;
 
-function makeGetDocRef(firestore: admin.firestore.Firestore): GetDocRef {
-  return (key) => firestore.collection(key.col).doc(key.id);
-}
-
 async function runTrigger<A extends ActionType>({
-  context: { makeBatch, getDocRef, db, fieldValue },
+  context: { makeBatch, getDocRef, db, firestoreFieldValue },
   snapshot,
   draft,
 }: {
@@ -145,16 +191,24 @@ async function runTrigger<A extends ActionType>({
     draft,
     getDoc: db.getDoc,
   });
+  functions.logger.log('transactionCommit', { transactionCommit });
   if (transactionCommit.tag === 'left') {
-    functions.logger.log('Failed to get transaction commit', transactionCommit);
+    functions.logger.error('Failed to get transaction commit', transactionCommit);
     return;
   }
   const batch = makeBatch();
   Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
     Object.entries(docs).forEach(([docId, docCommit]) => {
       const ref = getDocRef({ col: colName, id: docId });
-      if (docCommit.op === 'merge') {
-        batch.set(ref, writeToFirestoreDocData({ data: docCommit.data, fieldValue }), {
+      if (docCommit.op === 'update') {
+        batch.update(
+          ref,
+          writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
+        );
+        return;
+      }
+      if (docCommit.op === 'set') {
+        batch.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
           merge: true,
         });
         return;
@@ -177,21 +231,22 @@ async function runTrigger<A extends ActionType>({
       error,
     }));
   if (result.tag === 'left') {
-    functions.logger.log('Failed batch write', transactionCommit);
+    functions.logger.error('Failed batch write', transactionCommit);
     return;
   }
+  functions.logger.log('batch result', { result });
   runMayFailOps({ draft, snapshot, db });
 }
 
 export function getFirebaseTriggers<F extends Field>({
   firestore,
-  fieldValue,
+  firestoreFieldValue: firestoreFieldValue,
   cols,
   triggerRegions,
   makeDraft,
 }: {
   readonly firestore: admin.firestore.Firestore;
-  readonly fieldValue: FieldValue;
+  readonly firestoreFieldValue: FirestoreFieldValue;
   readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
   readonly version: {
     readonly 'kira-core': '0.3.8';
@@ -202,11 +257,11 @@ export function getFirebaseTriggers<F extends Field>({
 }): FirebaseTriggerDict {
   const drafts = getDraft({ cols, makeDraft });
 
-  const getDocRef = makeGetDocRef(firestore);
+  const getDocRef: GetDocRef = (key) => firestore.collection(key.col).doc(key.id);
 
   const context: TriggerContext = {
     getDocRef,
-    fieldValue,
+    firestoreFieldValue: firestoreFieldValue,
     makeBatch: () => firestore.batch(),
     db: {
       getDoc: async ({ key }) => {
@@ -220,6 +275,7 @@ export function getFirebaseTriggers<F extends Field>({
             tag: 'left',
             error,
           }));
+        functions.logger.log('getDoc', { docSnapshot, key });
         if (docSnapshot.tag === 'left') {
           return docSnapshot;
         }
@@ -228,9 +284,18 @@ export function getFirebaseTriggers<F extends Field>({
           value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
         };
       },
-      mergeDoc: ({ key, docData }) =>
-        getDocRef(key).set(writeToFirestoreDocData({ data: docData, fieldValue }), { merge: true }),
-      deleteDoc: ({ key }) => getDocRef(key).delete(),
+      mergeDoc: async ({ key, docData }) => {
+        const res = await getDocRef(key).update(
+          writeToFirestoreUpdateDocData({ data: docData, firestoreFieldValue })
+        );
+        functions.logger.log('mergeDoc', { res, docData, key });
+        return res;
+      },
+      deleteDoc: async ({ key }) => {
+        const wr = await getDocRef(key).delete();
+        functions.logger.log('deleteDoc', { key, wr });
+        return wr;
+      },
     },
   };
 

@@ -55,10 +55,10 @@ export type FirestoreReadDocData = {
     | FirestorePrimitiveField;
 };
 
-export type FirestoreWriteField =
-  | FirestoreWriteDocData
-  | FirestorePrimitiveField
-  | admin.firestore.FieldValue
-  | Date;
+export type FirestoreUpdateField = FirestorePrimitiveField | admin.firestore.FieldValue | Date;
 
-export type FirestoreWriteDocData = { readonly [key: string]: FirestoreWriteField };
+export type FirestoreUpdateDocData = { readonly [key: string]: FirestoreUpdateField };
+
+export type FirestoreSetField = FirestoreSetDocData | FirestoreUpdateField;
+
+export type FirestoreSetDocData = { readonly [key: string]: FirestoreSetField };

@@ -32,7 +32,7 @@ import {
   pickBy,
 } from 'kira-client';
 
-function DocKeyToPath(key: DocKey): string {
+export function docKeyToPath(key: DocKey): string {
   return `${key.collection}/${key.id}`;
 }
 
@@ -55,7 +55,7 @@ function firestoreToDocData(firestoreData: FirestoreData): DocData {
   });
 }
 
-function ocrToFirestoreDocData(ocrDocData: OCRDocData): FirestoreData {
+export function ocrToFirestoreDocData(ocrDocData: OCRDocData): FirestoreData {
   return pickBy(
     mapValues(ocrDocData, (field) => {
       if (field.type === 'count') return undefined;
@@ -76,7 +76,7 @@ export type DBCursor = QueryDocumentSnapshot<unknown>;
 
 export function makeDbpReadDoc(firestore: FirebaseFirestore): DbpReadDoc<DBError> {
   return async (key) =>
-    getDoc(doc(firestore, DocKeyToPath(key)))
+    getDoc(doc(firestore, docKeyToPath(key)))
       .then<Either<DbpReadResult, DBError>>((snapshot) => {
         if (!snapshot.exists()) {
           return {
@@ -95,10 +95,16 @@ export function makeDbpReadDoc(firestore: FirebaseFirestore): DbpReadDoc<DBError
 
 export function makeDbpSetDoc(firestore: FirebaseFirestore): DbpSetDoc<DBError> {
   return async (key, ocrDocData) =>
-    setDoc(doc(firestore, DocKeyToPath(key)), {
-      ...ocrToFirestoreDocData(ocrDocData),
-      _fromClient: true,
-    })
+    setDoc(
+      doc(firestore, docKeyToPath(key)),
+      {
+        ...ocrToFirestoreDocData(ocrDocData),
+        _fromClient: true,
+      },
+      {
+        merge: true,
+      }
+    )
       .then<Either<undefined, DBError>>((_) => ({
         _tag: 'right',
         value: undefined,
