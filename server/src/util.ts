@@ -5,9 +5,7 @@ import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/p
 import {
   ActionType,
   ColDrafts,
-  DB,
   Dictionary,
-  DocKey,
   Either,
   Field,
   getActionDrafts,
@@ -27,29 +25,28 @@ import {
 
 import {
   FirebaseTriggerDict,
+  FirestoreFieldValue,
   FirestoreReadDocData,
   FirestoreSetDocData,
   FirestoreSetField,
   FirestoreUpdateDocData,
   FirestoreUpdateField,
+  GetDocRef,
+  TransactionResult,
+  TriggerContext,
 } from './type';
-
-type FirestoreFieldValue = typeof admin.firestore.FieldValue;
-type TransactionResult = { readonly success: boolean };
-type RunTransaction = (
-  updateFunction: (transaction: admin.firestore.Transaction) => Promise<void>
-) => Promise<void>;
 
 function isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && typeof arr[0] === 'string';
 }
 
 /**
- * Prevent infinite loop
+ * Prevent infinite loop.
+ * Trigger should only run when it's triggered from client.
  */
 export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
   const FROM_CLIENT_FLAG = '_fromClient';
-  // Stop functions if has client flag
+  // Stop functions if has no client flag
   if (snapshot.data()?.[FROM_CLIENT_FLAG] !== true) {
     return false;
   }
@@ -171,17 +168,6 @@ function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot
   };
 }
 
-type TriggerContext = {
-  readonly getDocRef: GetDocRef;
-  // readonly makeBatch: MakeBatch;
-  readonly runTransaction: RunTransaction;
-  readonly db: DB<Error, admin.firestore.WriteResult>;
-  readonly firestoreFieldValue: FirestoreFieldValue;
-};
-
-type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
-// type MakeBatch = () => admin.firestore.WriteBatch;
-
 async function runTrigger<A extends ActionType>({
   context: { runTransaction, getDocRef, db, firestoreFieldValue },
   snapshot,
@@ -196,12 +182,20 @@ async function runTrigger<A extends ActionType>({
     draft,
     getDoc: db.getDoc,
   });
-  functions.logger.log('transactionCommit', { transactionCommit });
   if (transactionCommit.tag === 'left') {
-    functions.logger.error('Failed to get transaction commit', transactionCommit);
+    functions.logger.error('Failed to get transaction commit', {
+      draft,
+      snapshot,
+      transactionCommit,
+    });
+    // TODO: revert trigger operation. (e.g. reverse update, delete if created, create if deleted)
     return;
   }
-  const transactionResult: TransactionResult = await runTransaction(async (t) => {
+  const transactionResult: TransactionResult = await runTransaction(async (transaction) => {
+    /**
+     * Gathers information wether document with commit `onDocAbsent === 'doNotUpdate'` exists.
+     * All reads in transaction need to be done before any writes.
+     */
     const docsExistsDict = Object.fromEntries(
       await Promise.all(
         Object.entries(transactionCommit.value).map<
@@ -213,8 +207,10 @@ async function runTrigger<A extends ActionType>({
               await Promise.all(
                 Object.entries(colDocs).map<Promise<readonly [string, boolean]>>(
                   async ([docId, docCommit]) => {
-                    if (docCommit.op === 'update') {
-                      const snapshot = await t.get(getDocRef({ col: colName, id: docId }));
+                    if (docCommit.op === 'update' && docCommit.onDocAbsent === 'doNotUpdate') {
+                      const snapshot = await transaction.get(
+                        getDocRef({ col: colName, id: docId })
+                      );
                       return [docId, snapshot.exists];
                     }
                     return [docId, false];
@@ -226,13 +222,15 @@ async function runTrigger<A extends ActionType>({
         })
       )
     );
+    // Write transactions
     Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
       Object.entries(docs).forEach(([docId, docCommit]) => {
         const ref = getDocRef({ col: colName, id: docId });
         if (docCommit.op === 'update') {
           if (docCommit.onDocAbsent === 'doNotUpdate') {
-            if (docsExistsDict[colName]?.[docId]) {
-              t.update(
+            const docExists = docsExistsDict[colName]?.[docId] ?? false;
+            if (docExists) {
+              transaction.update(
                 ref,
                 writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
               );
@@ -240,15 +238,19 @@ async function runTrigger<A extends ActionType>({
             return;
           }
           if (docCommit.onDocAbsent === 'createDoc') {
-            t.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
-              merge: true,
-            });
+            transaction.set(
+              ref,
+              writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }),
+              {
+                merge: true,
+              }
+            );
             return;
           }
           assertNever(docCommit.onDocAbsent);
         }
         if (docCommit.op === 'delete') {
-          t.delete(ref);
+          transaction.delete(ref);
           return;
         }
         assertNever(docCommit);
@@ -258,7 +260,12 @@ async function runTrigger<A extends ActionType>({
     .then(() => ({ success: true }))
     .catch(() => ({ success: false }));
   if (!transactionResult.success) {
-    functions.logger.error('Transaction Failed');
+    functions.logger.error('Failed to get transaction commit', {
+      draft,
+      snapshot,
+      transactionCommit,
+    });
+    // TODO: revert trigger operation. (e.g. reverse update, delete if created, create if deleted)
     return;
   }
   runMayFailOps({ draft, snapshot, db });
@@ -301,7 +308,6 @@ export function getFirebaseTriggers<F extends Field>({
             tag: 'left',
             error,
           }));
-        functions.logger.log('getDoc', { docSnapshot, key });
         if (docSnapshot.tag === 'left') {
           return docSnapshot;
         }
@@ -310,18 +316,11 @@ export function getFirebaseTriggers<F extends Field>({
           value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
         };
       },
-      updateDoc: async ({ key, docData }) => {
-        const res = await getDocRef(key).update(
+      updateDoc: async ({ key, docData }) =>
+        getDocRef(key).update(
           writeToFirestoreUpdateDocData({ data: docData, firestoreFieldValue })
-        );
-        functions.logger.log('updateDoc', { res, docData, key });
-        return res;
-      },
-      deleteDoc: async ({ key }) => {
-        const wr = await getDocRef(key).delete();
-        functions.logger.log('deleteDoc', { key, wr });
-        return wr;
-      },
+        ),
+      deleteDoc: async ({ key }) => getDocRef(key).delete(),
     },
   };
 

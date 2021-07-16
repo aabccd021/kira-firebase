@@ -898,11 +898,6 @@
   resolved "https://registry.yarnpkg.com/@types/json5/-/json5-0.0.29.tgz#ee28707ae94e11d2b827bcbe5270bcea7f3e71ee"
   integrity sha1-7ihweulOEdK4J7y+UnC86n8+ce4=
 
-"@types/lodash@^4.14.168":
-  version "4.14.168"
-  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.168.tgz#fe24632e79b7ade3f132891afff86caa5e5ce008"
-  integrity sha512-oVfRvqHV/V6D1yifJbVRU3TMp8OT6o6BG+U9MkwuJ3U8/CsDHvalRpsxBqivn71ztOFZBTfJMvETbqHiaNSj7Q==
-
 "@types/long@^4.0.0", "@types/long@^4.0.1":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@types/long/-/long-4.0.1.tgz#459c65fa1867dafe6a8f322c4c51695663cc55e9"
@@ -3978,18 +3973,18 @@ kind-of@^6.0.0, kind-of@^6.0.2:
   resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.3.tgz#07c05034a6c349fa06e24fa35aa76db4580ce4dd"
   integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
-kira-core@^0.3.8:
-  version "0.3.13"
-  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.13.tgz#4c713acd6bd447225f5438d1323404e84ea541ae"
-  integrity sha512-5zIniBttwYsr2Hqi996X9bD0BYZf0X0nY8E7vXdwcUK58arXbnJ1niuvswz6w3pweHPywH5fS73l6Ov6xLEOGQ==
+kira-core@^0.3.14:
+  version "0.3.14"
+  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.14.tgz#5e84c10ba1c47a7ce37f71340234642f332b1a18"
+  integrity sha512-ipmHmBw+1LjU8WAOMeHfCl5072E81MF3xakBQrYz6Z0HAmjI1nKPlGWBRXfyC+kcBqL6jHEvXvG2d520OD+Jeg==
 
-kira-nosql@^0.1.16:
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.16.tgz#d46278c42d1885db792ddb9ec2f6507c6c605636"
-  integrity sha512-ySXLTfJNb2Hpp2nAtwkJG7F+Ybxyq1jP9e/r90p6YKli7MPkrFToI+zWiW1GRhqUOlrK/XFyR2xiTrE2xewNbQ==
+kira-nosql@^0.1.17:
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.17.tgz#5507a1056022a27faea41e6036e74778bd256140"
+  integrity sha512-WNT0bSB993eRV0AiMulyySyIYzhl6FMeuo++/ns75dpxSmamAoB9mBxEkd52MZnCm/fkiSy4nz4xTMw1M6Fcyw==
   dependencies:
     assert-never "^1.2.1"
-    kira-core "^0.3.8"
+    kira-core "^0.3.14"
 
 kleur@^3.0.3:
   version "3.0.3"
