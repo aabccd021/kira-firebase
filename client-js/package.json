@@ -103,7 +103,7 @@
         "warn",
         {
           "code": 100,
-          "comments": 100,
+          "comments": 120,
           "ignoreStrings": true,
           "ignoreTemplateLiterals": true
         }
