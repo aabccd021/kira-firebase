@@ -35,6 +35,10 @@ import {
 } from './type';
 
 type FirestoreFieldValue = typeof admin.firestore.FieldValue;
+type TransactionResult = { readonly success: boolean };
+type RunTransaction = (
+  updateFunction: (transaction: admin.firestore.Transaction) => Promise<void>
+) => Promise<void>;
 
 function isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && typeof arr[0] === 'string';
@@ -169,16 +173,17 @@ function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot
 
 type TriggerContext = {
   readonly getDocRef: GetDocRef;
-  readonly makeBatch: MakeBatch;
+  // readonly makeBatch: MakeBatch;
+  readonly runTransaction: RunTransaction;
   readonly db: DB<Error, admin.firestore.WriteResult>;
   readonly firestoreFieldValue: FirestoreFieldValue;
 };
 
 type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
-type MakeBatch = () => admin.firestore.WriteBatch;
+// type MakeBatch = () => admin.firestore.WriteBatch;
 
 async function runTrigger<A extends ActionType>({
-  context: { makeBatch, getDocRef, db, firestoreFieldValue },
+  context: { runTransaction, getDocRef, db, firestoreFieldValue },
   snapshot,
   draft,
 }: {
@@ -196,45 +201,103 @@ async function runTrigger<A extends ActionType>({
     functions.logger.error('Failed to get transaction commit', transactionCommit);
     return;
   }
-  const batch = makeBatch();
-  Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
-    Object.entries(docs).forEach(([docId, docCommit]) => {
-      const ref = getDocRef({ col: colName, id: docId });
-      if (docCommit.op === 'update') {
-        batch.update(
-          ref,
-          writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
-        );
-        return;
-      }
-      if (docCommit.op === 'set') {
-        batch.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
-          merge: true,
-        });
-        return;
-      }
-      if (docCommit.op === 'delete') {
-        batch.delete(ref);
-        return;
-      }
-      assertNever(docCommit);
+  const transactionResult: TransactionResult = await runTransaction(async (t) => {
+    const docsExistsDict = Object.fromEntries(
+      await Promise.all(
+        Object.entries(transactionCommit.value).map<
+          Promise<readonly [string, Dictionary<boolean>]>
+        >(async ([colName, colDocs]) => {
+          return [
+            colName,
+            Object.fromEntries(
+              await Promise.all(
+                Object.entries(colDocs).map<Promise<readonly [string, boolean]>>(
+                  async ([docId, docCommit]) => {
+                    if (docCommit.op === 'update') {
+                      const snapshot = await t.get(getDocRef({ col: colName, id: docId }));
+                      return [docId, snapshot.exists];
+                    }
+                    return [docId, false];
+                  }
+                )
+              )
+            ),
+          ];
+        })
+      )
+    );
+    Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
+      Object.entries(docs).forEach(([docId, docCommit]) => {
+        const ref = getDocRef({ col: colName, id: docId });
+        if (docCommit.op === 'update') {
+          if (docsExistsDict[colName]?.[docId]) {
+            t.update(
+              ref,
+              writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
+            );
+          }
+          return;
+        }
+        if (docCommit.op === 'set') {
+          t.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
+            merge: true,
+          });
+          return;
+        }
+        if (docCommit.op === 'delete') {
+          t.delete(ref);
+          return;
+        }
+        assertNever(docCommit);
+      });
     });
-  });
-  const result = await batch
-    .commit()
-    .then<Either<readonly admin.firestore.WriteResult[], unknown>>((value) => ({
-      tag: 'right',
-      value,
-    }))
-    .catch<Either<readonly admin.firestore.WriteResult[], unknown>>((error) => ({
-      tag: 'left',
-      error,
-    }));
-  if (result.tag === 'left') {
-    functions.logger.error('Failed batch write', transactionCommit);
+  })
+    .then(() => ({ success: true }))
+    .catch(() => ({ success: false }));
+  // const batch = makeBatch();
+  // Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
+  //   Object.entries(docs).forEach(([docId, docCommit]) => {
+  //     const ref = getDocRef({ col: colName, id: docId });
+  //     if (docCommit.op === 'update') {
+  //       batch.update(
+  //         ref,
+  //         writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
+  //       );
+  //       return;
+  //     }
+  //     if (docCommit.op === 'set') {
+  //       batch.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }),
+  //  {
+  //         merge: true,
+  //       });
+  //       return;
+  //     }
+  //     if (docCommit.op === 'delete') {
+  //       batch.delete(ref);
+  //       return;
+  //     }
+  //     assertNever(docCommit);
+  //   });
+  // });
+  // const result = await batch
+  //   .commit()
+  //   .then<Either<readonly admin.firestore.WriteResult[], unknown>>((value) => ({
+  //     tag: 'right',
+  //     value,
+  //   }))
+  //   .catch<Either<readonly admin.firestore.WriteResult[], unknown>>((error) => ({
+  //     tag: 'left',
+  //     error,
+  //   }));
+  // if (result.tag === 'left') {
+  //   functions.logger.error('Failed batch write', transactionCommit);
+  //   return;
+  // }
+  // functions.logger.error('Succeed batch write', transactionCommit);
+  if (!transactionResult.success) {
+    functions.logger.error('Transaction Failed');
     return;
   }
-  functions.logger.error('Succeed batch write', transactionCommit);
   runMayFailOps({ draft, snapshot, db });
 }
 
@@ -262,7 +325,7 @@ export function getFirebaseTriggers<F extends Field>({
   const context: TriggerContext = {
     getDocRef,
     firestoreFieldValue: firestoreFieldValue,
-    makeBatch: () => firestore.batch(),
+    runTransaction: (params) => firestore.runTransaction(params),
     db: {
       getDoc: async ({ key }) => {
         const docSnapshot = await getDocRef(key)

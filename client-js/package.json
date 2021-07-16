@@ -48,11 +48,6 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "jest-extended"
-    ],
-    "collectCoverageFrom": [
-      "**/*.{js,jsx,ts,tsx}",
-      "!**/node_modules/**",
-      "!**/vendor/**"
     ]
   },
   "eslintConfig": {
