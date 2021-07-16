@@ -234,7 +234,7 @@ async function runTrigger<A extends ActionType>({
     functions.logger.error('Failed batch write', transactionCommit);
     return;
   }
-  functions.logger.log('batch result', { result });
+  functions.logger.error('Succeed batch write', transactionCommit);
   runMayFailOps({ draft, snapshot, db });
 }
 

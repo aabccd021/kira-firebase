@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
+    "play": "ts-node src/playground.ts",
     "lint": "eslint . --ext ts",
     "test": "jest --coverage"
   },
@@ -47,6 +48,11 @@
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "jest-extended"
+    ],
+    "collectCoverageFrom": [
+      "**/*.{js,jsx,ts,tsx}",
+      "!**/node_modules/**",
+      "!**/vendor/**"
     ]
   },
   "eslintConfig": {
