@@ -230,19 +230,22 @@ async function runTrigger<A extends ActionType>({
       Object.entries(docs).forEach(([docId, docCommit]) => {
         const ref = getDocRef({ col: colName, id: docId });
         if (docCommit.op === 'update') {
-          if (docsExistsDict[colName]?.[docId]) {
-            t.update(
-              ref,
-              writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
-            );
+          if (docCommit.onDocAbsent === 'doNotUpdate') {
+            if (docsExistsDict[colName]?.[docId]) {
+              t.update(
+                ref,
+                writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
+              );
+            }
+            return;
           }
-          return;
-        }
-        if (docCommit.op === 'set') {
-          t.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
-            merge: true,
-          });
-          return;
+          if (docCommit.onDocAbsent === 'createDoc') {
+            t.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }), {
+              merge: true,
+            });
+            return;
+          }
+          assertNever(docCommit.onDocAbsent);
         }
         if (docCommit.op === 'delete') {
           t.delete(ref);
@@ -307,11 +310,11 @@ export function getFirebaseTriggers<F extends Field>({
           value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
         };
       },
-      mergeDoc: async ({ key, docData }) => {
+      updateDoc: async ({ key, docData }) => {
         const res = await getDocRef(key).update(
           writeToFirestoreUpdateDocData({ data: docData, firestoreFieldValue })
         );
-        functions.logger.log('mergeDoc', { res, docData, key });
+        functions.logger.log('updateDoc', { res, docData, key });
         return res;
       },
       deleteDoc: async ({ key }) => {
