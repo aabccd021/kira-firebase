@@ -254,46 +254,6 @@ async function runTrigger<A extends ActionType>({
   })
     .then(() => ({ success: true }))
     .catch(() => ({ success: false }));
-  // const batch = makeBatch();
-  // Object.entries(transactionCommit.value).forEach(([colName, docs]) => {
-  //   Object.entries(docs).forEach(([docId, docCommit]) => {
-  //     const ref = getDocRef({ col: colName, id: docId });
-  //     if (docCommit.op === 'update') {
-  //       batch.update(
-  //         ref,
-  //         writeToFirestoreUpdateDocData({ data: docCommit.data, firestoreFieldValue })
-  //       );
-  //       return;
-  //     }
-  //     if (docCommit.op === 'set') {
-  //       batch.set(ref, writeToFirestoreSetDocData({ data: docCommit.data, firestoreFieldValue }),
-  //  {
-  //         merge: true,
-  //       });
-  //       return;
-  //     }
-  //     if (docCommit.op === 'delete') {
-  //       batch.delete(ref);
-  //       return;
-  //     }
-  //     assertNever(docCommit);
-  //   });
-  // });
-  // const result = await batch
-  //   .commit()
-  //   .then<Either<readonly admin.firestore.WriteResult[], unknown>>((value) => ({
-  //     tag: 'right',
-  //     value,
-  //   }))
-  //   .catch<Either<readonly admin.firestore.WriteResult[], unknown>>((error) => ({
-  //     tag: 'left',
-  //     error,
-  //   }));
-  // if (result.tag === 'left') {
-  //   functions.logger.error('Failed batch write', transactionCommit);
-  //   return;
-  // }
-  // functions.logger.error('Succeed batch write', transactionCommit);
   if (!transactionResult.success) {
     functions.logger.error('Transaction Failed');
     return;
