@@ -44,11 +44,11 @@ describe('js client', () => {
     });
 
     /**
-     * User1 creates image1
+     * User1 creates memeImage1
      */
-    const image1creationTime = new Date().getTime();
+    const memeImage1creationTime = new Date().getTime();
     await dbpSetDoc(
-      { collection: 'memeImage', id: 'image1' },
+      { collection: 'memeImage', id: 'memeImage1' },
       {
         image: {
           type: 'image',
@@ -62,13 +62,13 @@ describe('js client', () => {
     );
     await sleep(5000);
 
-    // expect trigger working on image1
-    expect(await dbpReadDoc({ collection: 'memeImage', id: 'image1' })).toStrictEqual({
+    // expect trigger working on memeImage1
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'memeImage1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
         data: {
-          creationTime: expect.toSatisfy(almostEqualTimeWith(image1creationTime)),
+          creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
           image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
           memeCreatedCount: 0,
           owner: {
@@ -109,7 +109,7 @@ describe('js client', () => {
         memeImage: {
           type: 'ref',
           refCol: 'image',
-          value: { id: 'image1', doc: {} },
+          value: { id: 'memeImage1', doc: {} },
         },
         text: { type: 'string', value: 'L eats banana' },
         owner: {
@@ -136,20 +136,20 @@ describe('js client', () => {
             },
           },
           memeImage: {
-            id: 'image1',
+            id: 'memeImage1',
             image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
           },
         },
       },
     });
 
-    // expect triggers work on image1
-    expect(await dbpReadDoc({ collection: 'memeImage', id: 'image1' })).toStrictEqual({
+    // expect triggers work on memeImage1
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'memeImage1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
         data: {
-          creationTime: expect.toSatisfy(almostEqualTimeWith(image1creationTime)),
+          creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
           image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
           memeCreatedCount: 1,
           owner: {
@@ -191,7 +191,24 @@ describe('js client', () => {
     );
     await sleep(5000);
 
-    // expect meme1 owner.displayName changed to 'kira masumoto'
+    // expect user.displayName to change
+    expect(await dbpReadDoc({ collection: 'user', id: 'user1' })).toStrictEqual({
+      _tag: 'right',
+      value: {
+        state: 'exists',
+        data: {
+          joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
+          displayName: 'kira masumoto',
+          memeImageCreatedCount: 1,
+          memeCreatedCount: 1,
+          profilePicture: {
+            url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+      },
+    });
+
+    // expect meme1.owner.displayName changed to 'kira masumoto'
     expect(await dbpReadDoc({ collection: 'meme', id: 'meme1' })).toStrictEqual({
       _tag: 'right',
       value: {
@@ -207,20 +224,20 @@ describe('js client', () => {
             },
           },
           memeImage: {
-            id: 'image1',
+            id: 'memeImage1',
             image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
           },
         },
       },
     });
 
-    // expect image1 owner.displayName changed to 'kira masumoto'
-    expect(await dbpReadDoc({ collection: 'memeImage', id: 'image1' })).toStrictEqual({
+    // expect memeImage1.owner.displayName changed to 'kira masumoto'
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'memeImage1' })).toStrictEqual({
       _tag: 'right',
       value: {
         state: 'exists',
         data: {
-          creationTime: expect.toSatisfy(almostEqualTimeWith(image1creationTime)),
+          creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
           image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
           memeCreatedCount: 1,
           owner: {
@@ -233,5 +250,85 @@ describe('js client', () => {
         },
       },
     });
-  }, 30000);
+
+    /**
+     * User1 updates memeImage1 url
+     */
+    await dbpSetDoc(
+      { collection: 'memeImage', id: 'memeImage1' },
+      {
+        image: {
+          type: 'image',
+          value: {
+            url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+          },
+        },
+      }
+    );
+    await sleep(5000);
+
+    // expect user.displayName to not change
+    expect(await dbpReadDoc({ collection: 'user', id: 'user1' })).toStrictEqual({
+      _tag: 'right',
+      value: {
+        state: 'exists',
+        data: {
+          joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
+          displayName: 'kira masumoto',
+          memeImageCreatedCount: 1,
+          memeCreatedCount: 1,
+          profilePicture: {
+            url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+      },
+    });
+
+    // expect memeImage1.image.url changed
+    expect(await dbpReadDoc({ collection: 'memeImage', id: 'memeImage1' })).toStrictEqual({
+      _tag: 'right',
+      value: {
+        state: 'exists',
+        data: {
+          creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
+          image: {
+            url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+          },
+          memeCreatedCount: 1,
+          owner: {
+            id: 'user1',
+            displayName: 'kira masumoto',
+            profilePicture: {
+              url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+            },
+          },
+        },
+      },
+    });
+
+    // expect meme1.memeImage.image.uri changed
+    expect(await dbpReadDoc({ collection: 'meme', id: 'meme1' })).toStrictEqual({
+      _tag: 'right',
+      value: {
+        state: 'exists',
+        data: {
+          creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
+          text: 'L eats banana',
+          owner: {
+            id: 'user1',
+            displayName: 'kira masumoto',
+            profilePicture: {
+              url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+            },
+          },
+          memeImage: {
+            id: 'memeImage1',
+            image: {
+              url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+            },
+          },
+        },
+      },
+    });
+  }, 40000);
 });
