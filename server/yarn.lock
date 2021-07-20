@@ -3973,18 +3973,18 @@ kind-of@^6.0.0, kind-of@^6.0.2:
   resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.3.tgz#07c05034a6c349fa06e24fa35aa76db4580ce4dd"
   integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
-kira-core@^0.3.14:
-  version "0.3.14"
-  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.14.tgz#5e84c10ba1c47a7ce37f71340234642f332b1a18"
-  integrity sha512-ipmHmBw+1LjU8WAOMeHfCl5072E81MF3xakBQrYz6Z0HAmjI1nKPlGWBRXfyC+kcBqL6jHEvXvG2d520OD+Jeg==
+kira-core@^0.3.16:
+  version "0.3.16"
+  resolved "https://registry.yarnpkg.com/kira-core/-/kira-core-0.3.16.tgz#8a488ff94ddb8dd8b69e2f454e7712acd01067d0"
+  integrity sha512-ocNiGbGy4R6Mp00kTaZem1qIGs+DgGRnfiD5vGSFRhtjMEhEY0SeBAzD51u3hc9TSGu9smfxH7jZxTHbBEOCpA==
 
-kira-nosql@^0.1.17:
-  version "0.1.17"
-  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.17.tgz#5507a1056022a27faea41e6036e74778bd256140"
-  integrity sha512-WNT0bSB993eRV0AiMulyySyIYzhl6FMeuo++/ns75dpxSmamAoB9mBxEkd52MZnCm/fkiSy4nz4xTMw1M6Fcyw==
+kira-nosql@^0.1.18:
+  version "0.1.18"
+  resolved "https://registry.yarnpkg.com/kira-nosql/-/kira-nosql-0.1.18.tgz#83fe40362bdf1874169af918ab0660d92a04c6c5"
+  integrity sha512-Zhyqf383oyiamSEkCEYEiX7ZjUTAuJz6ZVCMQn+kCU9lpl7YCZfVj0uLpvjRCGhUAhFr3noXA8UNf5HZqYw3hA==
   dependencies:
     assert-never "^1.2.1"
-    kira-core "^0.3.14"
+    kira-core "^0.3.16"
 
 kleur@^3.0.3:
   version "3.0.3"

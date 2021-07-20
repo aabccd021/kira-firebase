@@ -9,17 +9,22 @@ export type FirebaseTriggerDict = Dictionary<{
   readonly onDelete?: functions.CloudFunction<QueryDocumentSnapshot>;
 }>;
 
-export type FirestorePrimitiveField =
+export type FirestoreField =
   | number
   | string
   | admin.firestore.Timestamp
-  | readonly string[];
+  | readonly string[]
+  | FirestoreImageField;
+
+export type FirestoreImageField = {
+  readonly url: string;
+};
 
 export type FirestoreReadDocData = Dictionary<
-  ({ readonly id: string } & FirestoreReadDocData) | FirestorePrimitiveField
+  ({ readonly id: string } & FirestoreReadDocData) | FirestoreField
 >;
 
-export type FirestoreUpdateField = FirestorePrimitiveField | admin.firestore.FieldValue | Date;
+export type FirestoreUpdateField = FirestoreField | admin.firestore.FieldValue | Date;
 
 export type FirestoreUpdateDocData = Dictionary<FirestoreUpdateField>;
 
@@ -38,7 +43,7 @@ export type RunTransaction = (
 export type TriggerContext = {
   readonly getDocRef: GetDocRef;
   readonly runTransaction: RunTransaction;
-  readonly db: DB<Error, admin.firestore.WriteResult>;
+  readonly db: DB;
   readonly firestoreFieldValue: FirestoreFieldValue;
 };
 

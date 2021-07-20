@@ -3,29 +3,30 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { DocumentBuilder, QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import {
-  ActionType,
   ColDrafts,
   Dictionary,
+  Doc,
+  DocSnapshot,
   Either,
   Field,
+  FieldSpec,
   getActionDrafts,
+  GetDocError,
   getDraft,
   getTransactionCommit,
   isTriggerRequired,
   MakeDraft,
-  ReadDocData,
-  ReadDocSnapshot,
-  ReadField,
   RefWriteField,
   runMayFailOps,
-  SnapshotOfActionType,
-  WriteDocData,
+  Snapshot,
+  WriteDoc,
   WriteField,
 } from 'kira-nosql';
 
 import {
   FirebaseTriggerDict,
   FirestoreFieldValue,
+  FirestoreImageField,
   FirestoreReadDocData,
   FirestoreSetDocData,
   FirestoreSetField,
@@ -38,6 +39,10 @@ import {
 
 function isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && typeof arr[0] === 'string';
+}
+
+function isFirestoreImageField(field: unknown): field is FirestoreImageField {
+  return typeof field === 'object' && typeof (field as FirestoreImageField).url === 'string';
 }
 
 /**
@@ -55,9 +60,9 @@ export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise
   return true;
 }
 
-function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDocData {
+function firestoreToReadDocData(data: FirestoreReadDocData | undefined): Doc {
   return Object.fromEntries(
-    Object.entries(data ?? {}).map<readonly [string, ReadField]>(([fieldName, field]) => {
+    Object.entries(data ?? {}).map<readonly [string, Field]>(([fieldName, field]) => {
       if (typeof field === 'string') {
         return [fieldName, { type: 'string', value: field }];
       }
@@ -69,6 +74,9 @@ function firestoreToReadDocData(data: FirestoreReadDocData | undefined): ReadDoc
       }
       if (isStringArray(field)) {
         return [fieldName, { type: 'stringArray', value: field }];
+      }
+      if (isFirestoreImageField(field)) {
+        return [fieldName, { type: 'image', value: field }];
       }
       return [
         fieldName,
@@ -102,7 +110,8 @@ function writeToFirestoreUpdateField({
     field.type === 'number' ||
     field.type === 'string' ||
     field.type === 'date' ||
-    field.type === 'stringArray'
+    field.type === 'stringArray' ||
+    field.type === 'image'
   ) {
     return field.value;
   }
@@ -125,7 +134,7 @@ function writeToFirestoreSetDocData({
   data,
   firestoreFieldValue,
 }: {
-  readonly data: WriteDocData;
+  readonly data: WriteDoc;
   readonly firestoreFieldValue: FirestoreFieldValue;
 }): FirestoreSetDocData {
   return Object.fromEntries(
@@ -140,7 +149,7 @@ function writeToFirestoreUpdateDocData({
   data,
   firestoreFieldValue,
 }: {
-  readonly data: WriteDocData;
+  readonly data: WriteDoc;
   readonly firestoreFieldValue: FirestoreFieldValue;
 }): FirestoreUpdateDocData {
   return Object.entries(data).reduce<FirestoreUpdateDocData>((prev, [fieldName, field]) => {
@@ -161,21 +170,21 @@ function writeToFirestoreUpdateDocData({
   }, {});
 }
 
-function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot): ReadDocSnapshot {
+function firestoreToSnapshot(snapshot: functions.firestore.QueryDocumentSnapshot): DocSnapshot {
   return {
     id: snapshot.id,
     data: firestoreToReadDocData(snapshot.data()),
   };
 }
 
-async function runTrigger<A extends ActionType>({
+async function runTrigger<S extends Snapshot>({
   context: { runTransaction, getDocRef, db, firestoreFieldValue },
   snapshot,
   draft,
 }: {
   readonly context: TriggerContext;
-  readonly snapshot: SnapshotOfActionType<A>;
-  readonly draft: ColDrafts<A, Error, admin.firestore.WriteResult>;
+  readonly snapshot: S;
+  readonly draft: ColDrafts<S>;
 }): Promise<void> {
   const transactionCommit = await getTransactionCommit({
     snapshot,
@@ -271,10 +280,10 @@ async function runTrigger<A extends ActionType>({
   runMayFailOps({ draft, snapshot, db });
 }
 
-export function getFirebaseTriggers<F extends Field>({
+export function getFirebaseTriggers({
   firestore,
   firestoreFieldValue: firestoreFieldValue,
-  cols,
+  spec,
   triggerRegions,
   makeDraft,
 }: {
@@ -285,10 +294,10 @@ export function getFirebaseTriggers<F extends Field>({
     readonly 'kira-core': '0.3.8';
     readonly 'kira-firebase-server': '0.1.8';
   };
-  readonly cols: Dictionary<Dictionary<F>>;
-  readonly makeDraft: MakeDraft<F, Error, admin.firestore.WriteResult>;
+  readonly spec: Dictionary<Dictionary<FieldSpec>>;
+  readonly makeDraft: MakeDraft;
 }): FirebaseTriggerDict {
-  const drafts = getDraft({ cols, makeDraft });
+  const drafts = getDraft({ spec, makeDraft });
 
   const getDocRef: GetDocRef = (key) => firestore.collection(key.col).doc(key.id);
 
@@ -300,32 +309,37 @@ export function getFirebaseTriggers<F extends Field>({
       getDoc: async ({ key }) => {
         const docSnapshot = await getDocRef(key)
           .get()
-          .then<Either<admin.firestore.DocumentData | undefined, Error>>((docSnapshot) => ({
+          .then<Either<admin.firestore.DocumentData | undefined, GetDocError>>((docSnapshot) => ({
             tag: 'right',
             value: docSnapshot.data(),
           }))
-          .catch<Either<admin.firestore.DocumentData | undefined, Error>>((error) => ({
+          .catch<Either<admin.firestore.DocumentData | undefined, GetDocError>>(() => ({
             tag: 'left',
-            error,
+            error: { type: 'GetDocError' },
           }));
-        if (docSnapshot.tag === 'left') {
-          return docSnapshot;
-        }
+
+        if (docSnapshot.tag === 'left') return docSnapshot;
+
         return {
           tag: 'right',
           value: { id: key.id, data: firestoreToReadDocData(docSnapshot.value) },
         };
       },
       updateDoc: async ({ key, docData }) =>
-        getDocRef(key).update(
-          writeToFirestoreUpdateDocData({ data: docData, firestoreFieldValue })
-        ),
-      deleteDoc: async ({ key }) => getDocRef(key).delete(),
+        getDocRef(key)
+          .update(writeToFirestoreUpdateDocData({ data: docData, firestoreFieldValue }))
+          .then(() => ({ isSuccess: true }))
+          .catch(() => ({ isSuccess: false })),
+      deleteDoc: async ({ key }) =>
+        getDocRef(key)
+          .delete()
+          .then(() => ({ isSuccess: true }))
+          .catch(() => ({ isSuccess: false })),
     },
   };
 
   return Object.fromEntries(
-    Object.entries(cols).map(([colName]) => {
+    Object.entries(spec).map(([colName]) => {
       const docKey = `${colName}/{docId}`;
 
       const colTrigger: DocumentBuilder = triggerRegions
