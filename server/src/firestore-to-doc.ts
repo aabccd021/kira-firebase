@@ -20,7 +20,13 @@ import {
   Some,
 } from 'trimop';
 
-import { FirestoreDoc, FirestoreField, FirestoreToDocError, RefFirestoreField } from './type';
+import {
+  FirestoreDoc,
+  FirestoreField,
+  FirestoreToDocError,
+  ID_FIELD,
+  RefFirestoreField,
+} from './type';
 
 /**
  *
@@ -29,7 +35,7 @@ import { FirestoreDoc, FirestoreField, FirestoreToDocError, RefFirestoreField } 
  */
 function isRefFirestoreField(field: FirestoreField): field is RefFirestoreField {
   return (
-    typeof (field as RefFirestoreField)._id === 'string' &&
+    typeof (field as RefFirestoreField)[ID_FIELD] === 'string' &&
     Object.entries(field).every(
       ([, fieldValue]) =>
         typeof fieldValue === 'string' ||
@@ -85,7 +91,7 @@ export function firestoreToDoc(doc: Option<FirestoreDoc>): Either<FirestoreToDoc
           return eitherMapRight(firestoreToDoc(Some(field)), (doc) =>
             Right({
               ...acc,
-              [fieldName]: RefField({ doc, id: field._id }),
+              [fieldName]: RefField({ doc, id: field[ID_FIELD] }),
             })
           );
         }

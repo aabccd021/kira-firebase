@@ -12,8 +12,10 @@ export type ColFirebaseTrigger = {
 
 export type FirebaseTrigger = Dict<ColFirebaseTrigger | undefined>;
 
+export const ID_FIELD = '_id' as const;
+
 // eslint-disable-next-line no-use-before-define
-export type RefFirestoreField = { readonly _id: string } & FirestoreDoc;
+export type RefFirestoreField = { readonly [ID_FIELD]: string } & FirestoreDoc;
 
 export type FirestoreField =
   | number

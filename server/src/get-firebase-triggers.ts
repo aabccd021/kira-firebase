@@ -40,6 +40,7 @@ import {
   FirestoreFieldValue,
   FirestoreToDocError,
   FirestoreToDocGetDocError,
+  ID_FIELD,
   TransactionResult,
 } from './type';
 import {
@@ -93,7 +94,7 @@ async function runTrigger<S extends TriggerSnapshot>({
   const execOnRelDocs: ExecOnRelDocs = ({ refedId, referCol, referField }, exec) =>
     firestore
       .collection(referCol)
-      .where(`${referField}._id`, '==', refedId)
+      .where(`${referField}.${ID_FIELD}`, '==', refedId)
       .get()
       .then((querySnapshot) => Promise.all(querySnapshot.docs.map(({ id }) => exec(id))));
 
