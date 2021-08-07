@@ -19,7 +19,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc --build tsconfig.mjs.json && tsc --build tsconfig.cjs.json",
     "lint": "eslint . --ext ts",
-    "test": "jest --coverage --verbose",
+    "test": "firebase emulators:exec --project demo-kira-firebase 'yarn jest --coverage --verbose --detectOpenHandles'",
     "latest": "yarn upgrade-interactive --latest",
     "please": "yarn tsc --noEmit && yarn lint --fix && yarn test ",
     "pull-request": "git pull origin main --no-edit && npm version patch && git push && yarn open-cli https://github.com/aabccd021/kira-firebase-server/compare/main...$(git branch --show-current)"
@@ -47,6 +47,8 @@
     "eslint-plugin-sort-keys-fix": "^1.1.2",
     "eslint-plugin-typescript-sort-keys": "^1.7.0",
     "eslint-plugin-unused-imports": "^1.1.2",
+    "firebase-functions-test": "^0.3.1",
+    "firebase-tools": "^9.16.0",
     "jest": "^27.0.6",
     "jest-extended": "^0.11.5",
     "open-cli": "^7.0.0",
@@ -102,8 +104,8 @@
       {
         "files": [
           "test/**/*.ts"
-    ],
-    "rules": {
+        ],
+        "rules": {
           "no-null/no-null": "off",
           "functional/prefer-readonly-type": "off"
         }
