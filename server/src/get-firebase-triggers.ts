@@ -10,6 +10,7 @@ import {
   ExecOnRelDocs,
   execPropagationOps,
   GetDoc,
+  GetDocError,
   getTransactionCommit,
   getTrigger,
   TriggerSnapshot,
@@ -28,98 +29,23 @@ import {
   Right,
 } from 'trimop';
 
-import { firestoreToDoc, FirestoreToDocError } from './firestore-to-doc';
+import { firestoreToDoc } from './firestore-to-doc';
 import { shouldRunTrigger } from './should-run-trigger';
 import {
   ColFirebaseTrigger,
+  FirebaseDeleteDocError,
+  FirebaseGetDocError,
   FirebaseTrigger,
+  FirebaseUpdateDocError,
   FirestoreFieldValue,
+  FirestoreToDocError,
+  FirestoreToDocGetDocError,
   TransactionResult,
 } from './type';
 import {
   writeToFirestoreSetDocData,
   writeToFirestoreUpdateDocData,
 } from './write-to-firestore-doc';
-
-/**
- *
- */
-export type FirebaseGetDocError = {
-  readonly _getDocErrorType: 'FirebaseGetDoc';
-  readonly _errorType: 'GetDocError';
-  readonly reason: unknown;
-};
-
-export function FirebaseGetDocError(
-  p: Omit<FirebaseGetDocError, '_errorType' | '_getDocErrorType'>
-): FirebaseGetDocError {
-  return {
-    ...p,
-    _errorType: 'GetDocError',
-    _getDocErrorType: 'FirebaseGetDoc',
-  };
-}
-
-/**
- *
- */
-export type FirebaseUpdateDocError = {
-  readonly _updateDocErrorType: 'FirebaseUpdateDoc';
-  readonly _errorType: 'UpdateDocError';
-  readonly reason: unknown;
-};
-
-export function FirebaseUpdateDocError(
-  p: Omit<FirebaseUpdateDocError, '_errorType' | '_updateDocErrorType'>
-): FirebaseUpdateDocError {
-  return {
-    ...p,
-    _errorType: 'UpdateDocError',
-    _updateDocErrorType: 'FirebaseUpdateDoc',
-  };
-}
-
-/**
- *
- */
-export type FirestoreToDocGetDocError = FirestoreToDocError & {
-  readonly _getDocErrorType: 'FirestoreToDocGetDoc';
-  readonly _errorType: 'GetDocError';
-};
-
-export function FirestoreToDocGetDocError(
-  p: Omit<FirestoreToDocGetDocError, '_errorType' | '_getDocErrorType'>
-): FirestoreToDocGetDocError {
-  return {
-    ...p,
-    _errorType: 'GetDocError',
-    _getDocErrorType: 'FirestoreToDocGetDoc',
-  };
-}
-
-/**
- *
- */
-export type GetDocError = FirebaseGetDocError | FirestoreToDocGetDocError;
-
-/**
- *
- */
-export type FirebaseDeleteDocError = {
-  readonly _deleteDocErrorType: 'FirebaseDeleteDoc';
-  readonly _errorType: 'DeleteDocError';
-  readonly reason: unknown;
-};
-
-export function FirebaseDeleteDocError(
-  p: Omit<FirebaseDeleteDocError, '_errorType' | '_deleteDocErrorType'>
-): FirebaseDeleteDocError {
-  return {
-    ...p,
-    _errorType: 'DeleteDocError',
-    _deleteDocErrorType: 'FirebaseDeleteDoc',
-  };
-}
 
 type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
 
@@ -130,8 +56,8 @@ async function runTrigger<S extends TriggerSnapshot>({
   firestoreFieldValue,
 }: {
   readonly actionTrigger: ActionTrigger<S>;
-  readonly firestoreFieldValue: FirestoreFieldValue;
   readonly firestore: admin.firestore.Firestore;
+  readonly firestoreFieldValue: FirestoreFieldValue;
   readonly snapshot: S;
 }): Promise<void> {
   const getDocRef: GetDocRef = (key) => firestore.collection(key.col).doc(key.id);
@@ -154,7 +80,7 @@ async function runTrigger<S extends TriggerSnapshot>({
 
   const updateDoc: UpdateDoc<FirebaseUpdateDocError> = ({ key, writeDoc }) =>
     getDocRef(key)
-      .update(writeToFirestoreUpdateDocData({ writeDoc, firestoreFieldValue }))
+      .update(writeToFirestoreUpdateDocData({ firestoreFieldValue, writeDoc }))
       .then((writeResult) => Right(writeResult))
       .catch((reason) => Left(FirebaseUpdateDocError({ reason })));
 
@@ -173,8 +99,8 @@ async function runTrigger<S extends TriggerSnapshot>({
 
   const transactionCommit = await getTransactionCommit<S>({
     actionTrigger,
-    snapshot,
     getDoc,
+    snapshot,
   });
   if (isLeft(transactionCommit)) {
     functions.logger.error('Failed to get transaction commit', {
@@ -226,8 +152,8 @@ async function runTrigger<S extends TriggerSnapshot>({
                 transaction.update(
                   ref,
                   writeToFirestoreUpdateDocData({
-                    writeDoc: docCommit.writeDoc,
                     firestoreFieldValue,
+                    writeDoc: docCommit.writeDoc,
                   })
                 );
               }
@@ -236,12 +162,11 @@ async function runTrigger<S extends TriggerSnapshot>({
             if (docCommit.onDocAbsent === 'createDoc') {
               transaction.set(
                 ref,
-                writeToFirestoreSetDocData({ writeDoc: docCommit.writeDoc, firestoreFieldValue }),
+                writeToFirestoreSetDocData({ firestoreFieldValue, writeDoc: docCommit.writeDoc }),
                 {
                   merge: true,
                 }
               );
-              return;
             }
           }
         });
@@ -260,9 +185,9 @@ async function runTrigger<S extends TriggerSnapshot>({
   }
   execPropagationOps({
     actionTrigger,
-    snapshot,
     deleteDoc,
     execOnRelDocs,
+    snapshot,
     updateDoc,
   });
 }
@@ -274,13 +199,13 @@ export function getFirebaseTriggers({
   triggerRegions,
   buildDraft,
 }: {
-  readonly firestore: admin.firestore.Firestore;
   readonly buildDraft: BuildDraft;
+  readonly firestore: admin.firestore.Firestore;
   readonly firestoreFieldValue: FirestoreFieldValue;
-  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
   readonly spec: Dict<Dict<FieldSpec>>;
+  readonly triggerRegions?: readonly typeof functions.SUPPORTED_REGIONS[number][];
 }): FirebaseTrigger {
-  const trigger = getTrigger({ spec, buildDraft });
+  const trigger = getTrigger({ buildDraft, spec });
 
   return Object.fromEntries(
     Object.entries(spec).map(([colName]) =>
@@ -310,31 +235,8 @@ export function getFirebaseTriggers({
                           firestore,
                           firestoreFieldValue,
                           snapshot: {
-                            id: snapshot.id,
                             doc: doc.right,
-                          },
-                        });
-                      }
-                    }
-                  })
-              ),
-              onUpdate: optionFold(
-                colTrigger.onUpdate,
-                () => undefined,
-                (onUpdateTrigger) =>
-                  firestoreColTrigger.onUpdate(async (snapshot) => {
-                    if (await shouldRunTrigger(snapshot.after)) {
-                      const before = firestoreToDoc(optionFromNullable(snapshot.before.data()));
-                      const after = firestoreToDoc(optionFromNullable(snapshot.after.data()));
-                      if (isRight(before) && isRight(after)) {
-                        await runTrigger({
-                          actionTrigger: onUpdateTrigger,
-                          firestore,
-                          firestoreFieldValue,
-                          snapshot: {
-                            id: snapshot.after.id,
-                            before: before.right,
-                            after: after.right,
+                            id: snapshot.id,
                           },
                         });
                       }
@@ -353,10 +255,33 @@ export function getFirebaseTriggers({
                         firestore,
                         firestoreFieldValue,
                         snapshot: {
-                          id: snapshot.id,
                           doc: doc.right,
+                          id: snapshot.id,
                         },
                       });
+                    }
+                  })
+              ),
+              onUpdate: optionFold(
+                colTrigger.onUpdate,
+                () => undefined,
+                (onUpdateTrigger) =>
+                  firestoreColTrigger.onUpdate(async (snapshot) => {
+                    if (await shouldRunTrigger(snapshot.after)) {
+                      const before = firestoreToDoc(optionFromNullable(snapshot.before.data()));
+                      const after = firestoreToDoc(optionFromNullable(snapshot.after.data()));
+                      if (isRight(before) && isRight(after)) {
+                        await runTrigger({
+                          actionTrigger: onUpdateTrigger,
+                          firestore,
+                          firestoreFieldValue,
+                          snapshot: {
+                            after: after.right,
+                            before: before.right,
+                            id: snapshot.after.id,
+                          },
+                        });
+                      }
                     }
                   })
               ),

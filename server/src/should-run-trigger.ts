@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import { firestore } from 'firebase-admin';
 import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 
 /**
@@ -12,6 +12,6 @@ export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise
     return false;
   }
   // Remove flag
-  await snapshot.ref.update({ [FROM_CLIENT_FLAG]: admin.firestore.FieldValue.delete() });
+  await snapshot.ref.update({ [FROM_CLIENT_FLAG]: firestore.FieldValue.delete() });
   return true;
 }

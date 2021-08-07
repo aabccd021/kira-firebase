@@ -5,18 +5,21 @@
   "repository": "git@github.com:aabccd021/kira-firebase.git",
   "author": "aabccd021 <aabccd021@gmail.com>",
   "license": "MIT",
-  "engines": {
-    "node": "14"
-  },
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
   "files": [
-    "lib"
+    "dist"
   ],
+  "main": "dist/cjs/index.js",
+  "module": "dist/mjs/index.js",
+  "exports": {
+    ".": {
+      "node": "./dist/cjs/index.js",
+      "default": "./dist/mjs/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc",
-    "coverage": "yarn test --coverage",
+    "build": "rm -rf dist && tsc --build tsconfig.mjs.json && tsc --build tsconfig.cjs.json",
     "lint": "eslint . --ext ts",
+    "test": "jest --coverage --verbose",
     "latest": "yarn upgrade-interactive --latest",
     "please": "yarn tsc --noEmit && yarn lint --fix && yarn test ",
     "pull-request": "git pull origin main --no-edit && npm version patch && git push && yarn open-cli https://github.com/aabccd021/kira-firebase-server/compare/main...$(git branch --show-current)"
@@ -33,35 +36,53 @@
     "@typescript-eslint/eslint-plugin": "^4.29.0",
     "@typescript-eslint/parser": "^4.29.0",
     "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-filenames": "^1.3.2",
-    "eslint-plugin-functional": "^3.5.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-plugin-functional": "^3.4.1",
     "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-jest": "^24.4.0",
     "eslint-plugin-no-null": "^1.0.2",
     "eslint-plugin-only-warn": "^1.0.3",
-    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-prettier": "^3.3.1",
     "eslint-plugin-simple-import-sort": "^7.0.0",
+    "eslint-plugin-sort-keys-fix": "^1.1.2",
+    "eslint-plugin-typescript-sort-keys": "^1.7.0",
     "eslint-plugin-unused-imports": "^1.1.2",
     "jest": "^27.0.6",
+    "jest-extended": "^0.11.5",
+    "open-cli": "^7.0.0",
     "prettier": "^2.3.2",
     "ts-jest": "^27.0.4",
-    "ts-node": "^10.1.0",
     "typescript": "^4.3.5"
   },
   "jest": {
     "preset": "ts-jest",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.ts"
+    ],
+    "coveragePathIgnorePatterns": [
+      "test/"
+    ],
+    "setupFilesAfterEnv": [
+      "jest-extended"
+    ]
   },
   "eslintConfig": {
+    "ignorePatterns": [
+      "lib/**",
+      "dist/**"
+    ],
     "parser": "@typescript-eslint/parser",
     "plugins": [
       "@typescript-eslint",
-      "filenames",
       "functional",
       "import",
+      "jest",
       "no-null",
       "only-warn",
       "simple-import-sort",
+      "sort-keys-fix",
+      "typescript-sort-keys",
       "unused-imports"
     ],
     "extends": [
@@ -69,28 +90,37 @@
       "plugin:@typescript-eslint/recommended",
       "plugin:functional/all",
       "plugin:import/errors",
-      "plugin:import/warnings",
       "plugin:import/typescript",
+      "plugin:import/warnings",
+      "plugin:jest/recommended",
+      "plugin:jest/style",
       "plugin:prettier/recommended",
+      "plugin:typescript-sort-keys/recommended",
       "prettier"
     ],
-    "ignorePatterns": [
-      "**/*.d.ts",
-      "/functions"
+    "overrides": [
+      {
+        "files": [
+          "test/**/*.ts"
     ],
     "rules": {
-      "@typescript-eslint/no-unused-vars": "off",
+          "no-null/no-null": "off",
+          "functional/prefer-readonly-type": "off"
+        }
+      }
+    ],
+    "rules": {
+      "no-unsafe-optional-chaining": "warn",
+      "no-use-before-define": "warn",
+      "no-else-return": "warn",
+      "no-useless-return": "warn",
+      "no-undef-init": "warn",
+      "no-useless-rename": "warn",
+      "object-shorthand": "warn",
+      "prefer-arrow-callback": "warn",
+      "prefer-destructuring": "warn",
+      "prefer-template": "warn",
       "eqeqeq": "warn",
-      "functional/no-conditional-statement": "off",
-      "functional/no-expression-statement": "off",
-      "functional/functional-parameters": "off",
-      "functional/no-return-void": "off",
-      "import/no-cycle": "warn",
-      "no-null/no-null": "warn",
-      "no-unused-expressions": "off",
-      "simple-import-sort/exports": "warn",
-      "simple-import-sort/imports": "warn",
-      "unused-imports/no-unused-imports-ts": "warn",
       "max-len": [
         "warn",
         {
@@ -100,10 +130,33 @@
           "ignoreTemplateLiterals": true
         }
       ],
-      "max-params": [
+      "curly": [
         "warn",
-        3
+        "all"
       ],
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports-ts": "warn",
+      "functional/no-expression-statement": "off",
+      "functional/functional-parameters": "off",
+      "functional/no-conditional-statement": "off",
+      "sort-keys-fix/sort-keys-fix": "warn",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          "vars": "all",
+          "varsIgnorePattern": "^_",
+          "args": "after-used",
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "import/no-cycle": "warn",
+      "import/exports-last": "warn",
+      "import/first": "warn",
+      "import/no-named-default": "warn",
+      "import/no-useless-path-segments": "warn",
+      "no-null/no-null": "warn",
+      "simple-import-sort/exports": "warn",
+      "simple-import-sort/imports": "warn",
       "prettier/prettier": [
         "warn",
         {

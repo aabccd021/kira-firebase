@@ -4,13 +4,16 @@ import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestor
 import { ImageFieldValue } from 'kira-core';
 import { Dict } from 'trimop';
 
-export type FirebaseTrigger = Dict<ColFirebaseTrigger | undefined>;
-
 export type ColFirebaseTrigger = {
   readonly onCreate?: functions.CloudFunction<QueryDocumentSnapshot>;
-  readonly onUpdate?: functions.CloudFunction<functions.Change<QueryDocumentSnapshot>>;
   readonly onDelete?: functions.CloudFunction<QueryDocumentSnapshot>;
+  readonly onUpdate?: functions.CloudFunction<functions.Change<QueryDocumentSnapshot>>;
 };
+
+export type FirebaseTrigger = Dict<ColFirebaseTrigger | undefined>;
+
+// eslint-disable-next-line no-use-before-define
+export type RefFirestoreField = { readonly _id: string } & FirestoreDoc;
 
 export type FirestoreField =
   | number
@@ -19,18 +22,103 @@ export type FirestoreField =
   | ImageFieldValue
   | RefFirestoreField;
 
-export type RefFirestoreField = { readonly _id: string } & FirestoreReadDoc;
-
-export type FirestoreReadDoc = Dict<FirestoreField>;
+export type FirestoreDoc = Dict<FirestoreField>;
 
 export type FirestoreUpdateField = FirestoreField | admin.firestore.FieldValue | Date;
 
-export type FirestoreUpdateDocData = Dict<FirestoreUpdateField>;
+export type FirestoreUpdateDoc = Dict<FirestoreUpdateField>;
 
-export type FirestoreSetField = FirestoreSetDocData | FirestoreUpdateField;
+// eslint-disable-next-line no-use-before-define
+export type FirestoreSetField = FirestoreSetDoc | FirestoreUpdateField;
 
-export type FirestoreSetDocData = Dict<FirestoreSetField>;
+export type FirestoreSetDoc = Dict<FirestoreSetField>;
 
 export type FirestoreFieldValue = typeof admin.firestore.FieldValue;
 
 export type TransactionResult = { readonly success: boolean };
+
+export type FirestoreToDocError = {
+  readonly doc: FirestoreDoc;
+  readonly field: never;
+  readonly fieldName: string;
+};
+
+/**
+ *
+ */
+export type FirebaseGetDocError = {
+  readonly _errorType: 'GetDocError';
+  readonly _getDocErrorType: 'FirebaseGetDoc';
+  readonly reason: unknown;
+};
+
+export function FirebaseGetDocError(
+  p: Omit<FirebaseGetDocError, '_errorType' | '_getDocErrorType'>
+): FirebaseGetDocError {
+  return {
+    ...p,
+    _errorType: 'GetDocError',
+    _getDocErrorType: 'FirebaseGetDoc',
+  };
+}
+
+/**
+ *
+ */
+export type FirebaseUpdateDocError = {
+  readonly _errorType: 'UpdateDocError';
+  readonly _updateDocErrorType: 'FirebaseUpdateDoc';
+  readonly reason: unknown;
+};
+
+export function FirebaseUpdateDocError(
+  p: Omit<FirebaseUpdateDocError, '_errorType' | '_updateDocErrorType'>
+): FirebaseUpdateDocError {
+  return {
+    ...p,
+    _errorType: 'UpdateDocError',
+    _updateDocErrorType: 'FirebaseUpdateDoc',
+  };
+}
+
+/**
+ *
+ */
+export type FirestoreToDocGetDocError = FirestoreToDocError & {
+  readonly _errorType: 'GetDocError';
+  readonly _getDocErrorType: 'FirestoreToDocGetDoc';
+};
+
+export function FirestoreToDocGetDocError(
+  p: Omit<FirestoreToDocGetDocError, '_errorType' | '_getDocErrorType'>
+): FirestoreToDocGetDocError {
+  return {
+    ...p,
+    _errorType: 'GetDocError',
+    _getDocErrorType: 'FirestoreToDocGetDoc',
+  };
+}
+
+/**
+ *
+ */
+export type GetDocError = FirebaseGetDocError | FirestoreToDocGetDocError;
+
+/**
+ *
+ */
+export type FirebaseDeleteDocError = {
+  readonly _deleteDocErrorType: 'FirebaseDeleteDoc';
+  readonly _errorType: 'DeleteDocError';
+  readonly reason: unknown;
+};
+
+export function FirebaseDeleteDocError(
+  p: Omit<FirebaseDeleteDocError, '_errorType' | '_deleteDocErrorType'>
+): FirebaseDeleteDocError {
+  return {
+    ...p,
+    _deleteDocErrorType: 'FirebaseDeleteDoc',
+    _errorType: 'DeleteDocError',
+  };
+}

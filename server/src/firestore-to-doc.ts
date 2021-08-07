@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import { firestore } from 'firebase-admin';
 import {
   DateField,
   Doc,
@@ -20,7 +20,7 @@ import {
   Some,
 } from 'trimop';
 
-import { FirestoreField, FirestoreReadDoc, RefFirestoreField } from './type';
+import { FirestoreDoc, FirestoreField, FirestoreToDocError, RefFirestoreField } from './type';
 
 /**
  *
@@ -34,7 +34,7 @@ function isRefFirestoreField(field: FirestoreField): field is RefFirestoreField 
       ([, fieldValue]) =>
         typeof fieldValue === 'string' ||
         typeof fieldValue === 'number' ||
-        fieldValue instanceof admin.firestore.Timestamp ||
+        fieldValue instanceof firestore.Timestamp ||
         isStringArray(fieldValue) ||
         isImageFieldValue(fieldValue) ||
         isRefFirestoreField(field)
@@ -45,18 +45,13 @@ function isRefFirestoreField(field: FirestoreField): field is RefFirestoreField 
 /**
  * FirestoreToDocError
  */
-export type FirestoreToDocError = {
-  readonly doc: FirestoreReadDoc;
-  readonly fieldName: string;
-  readonly field: never;
-};
 
 /**
  *
  * @param doc
  * @returns
  */
-export function firestoreToDoc(doc: Option<FirestoreReadDoc>): Either<FirestoreToDocError, Doc> {
+export function firestoreToDoc(doc: Option<FirestoreDoc>): Either<FirestoreToDocError, Doc> {
   return optionFold(
     doc,
     () => Right({}),
@@ -74,7 +69,7 @@ export function firestoreToDoc(doc: Option<FirestoreReadDoc>): Either<FirestoreT
             [fieldName]: NumberField(field),
           });
         }
-        if (field instanceof admin.firestore.Timestamp) {
+        if (field instanceof firestore.Timestamp) {
           return Right({
             ...acc,
             [fieldName]: DateField(field.toDate()),
@@ -90,11 +85,11 @@ export function firestoreToDoc(doc: Option<FirestoreReadDoc>): Either<FirestoreT
           return eitherMapRight(firestoreToDoc(Some(field)), (doc) =>
             Right({
               ...acc,
-              [fieldName]: RefField({ id: field._id, doc }),
+              [fieldName]: RefField({ doc, id: field._id }),
             })
           );
         }
-        return Left({ doc, fieldName, field });
+        return Left({ doc, field, fieldName });
       })
   );
 }

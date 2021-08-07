@@ -1,24 +1,25 @@
 {
-  "compileOnSave": true,
   "compilerOptions": {
+    "target": "ES2017",
+    "module": "commonjs",
     "declaration": true,
     "declarationMap": true,
-    "module": "commonjs",
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "sourceMap": true,
+    "outDir": "./lib",
+    "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "outDir": "lib",
-    "sourceMap": true,
-    "strict": true,
-    "target": "es2017",
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "forceConsistentCasingInFileNames": true,
     "lib": [
       "ESNext"
-    ],
+    ]
   },
   "include": [
-    "src"
+    "src",
+    "test"
   ]
 }
