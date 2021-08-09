@@ -3,6 +3,8 @@ import * as admin from 'firebase-admin';
 const projectId = 'demo-kira-firebase';
 admin.initializeApp({ projectId });
 
+import 'jest-extended';
+
 import * as functions from 'firebase-functions';
 import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import * as functionsTest from 'firebase-functions-test';
@@ -47,18 +49,16 @@ describe('Unit tests', () => {
     const wrappedUserOnCreateTrigger = test.wrap(
       userOnCreateTrigger as functions.CloudFunction<QueryDocumentSnapshot>
     );
-    await wrappedUserOnCreateTrigger(
-      test.firestore.makeDocumentSnapshot(
-        {
-          _fromClient: true,
-          aab: 'ccd',
-        },
-        '/user/user1'
-      )
-    );
+    const id = '/user/user1';
+    const snapshot = { _fromClient: true, aab: 'ccd' };
+    await admin.firestore().doc(id).set(snapshot);
+    await wrappedUserOnCreateTrigger(test.firestore.makeDocumentSnapshot(snapshot, id));
 
     // Check the data in the Firestore emulator
-    const snap = await admin.firestore().doc('/user/user1').get();
-    expect(snap.data()).toStrictEqual({ text: 'hallo kira' });
+    const snap = await admin.firestore().doc(id).get();
+    expect(snap.data()).toStrictEqual({
+      aab: 'ccd',
+      joinedTime: expect.any(admin.firestore.Timestamp),
+    });
   }, 5000);
 });

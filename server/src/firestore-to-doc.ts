@@ -20,6 +20,7 @@ import {
   Some,
 } from 'trimop';
 
+import { FROM_CLIENT_FLAG } from './should-run-trigger';
 import {
   FirestoreDoc,
   FirestoreField,
@@ -62,40 +63,44 @@ export function firestoreToDoc(doc: Option<FirestoreDoc>): Either<FirestoreToDoc
     doc,
     () => Right({}),
     (doc) =>
-      eitherArrayReduce(Object.entries(doc), Right({}), (acc, [fieldName, field]) => {
-        if (typeof field === 'string') {
-          return Right({
-            ...acc,
-            [fieldName]: StringField(field),
-          });
-        }
-        if (typeof field === 'number') {
-          return Right({
-            ...acc,
-            [fieldName]: NumberField(field),
-          });
-        }
-        if (field instanceof firestore.Timestamp) {
-          return Right({
-            ...acc,
-            [fieldName]: DateField(field.toDate()),
-          });
-        }
-        if (isImageFieldValue(field)) {
-          return Right({
-            ...acc,
-            [fieldName]: ImageField(field),
-          });
-        }
-        if (isRefFirestoreField(field)) {
-          return eitherMapRight(firestoreToDoc(Some(field)), (doc) =>
-            Right({
+      eitherArrayReduce(
+        Object.entries(doc).filter(([fieldName]) => fieldName !== FROM_CLIENT_FLAG),
+        Right({}),
+        (acc, [fieldName, field]) => {
+          if (typeof field === 'string') {
+            return Right({
               ...acc,
-              [fieldName]: RefField({ doc, id: field[ID_FIELD] }),
-            })
-          );
+              [fieldName]: StringField(field),
+            });
+          }
+          if (typeof field === 'number') {
+            return Right({
+              ...acc,
+              [fieldName]: NumberField(field),
+            });
+          }
+          if (field instanceof firestore.Timestamp) {
+            return Right({
+              ...acc,
+              [fieldName]: DateField(field.toDate()),
+            });
+          }
+          if (isImageFieldValue(field)) {
+            return Right({
+              ...acc,
+              [fieldName]: ImageField(field),
+            });
+          }
+          if (isRefFirestoreField(field)) {
+            return eitherMapRight(firestoreToDoc(Some(field)), (doc) =>
+              Right({
+                ...acc,
+                [fieldName]: RefField({ doc, id: field[ID_FIELD] }),
+              })
+            );
+          }
+          return Left({ doc, field, fieldName });
         }
-        return Left({ doc, field, fieldName });
-      })
+      )
   );
 }
