@@ -6,15 +6,11 @@ import {
   ActionTrigger,
   BuildDraft,
   ColTrigger,
-  DeleteDoc,
-  ExecOnRelDocs,
   execPropagationOps,
-  GetDoc,
   GetDocError,
   getTransactionCommit,
   getTrigger,
   TriggerSnapshot,
-  UpdateDoc,
 } from 'kira-nosql';
 import {
   Dict,
@@ -63,44 +59,21 @@ async function runTrigger<S extends TriggerSnapshot>({
 }): Promise<void> {
   const getDocRef: GetDocRef = (key) => firestore.collection(key.col).doc(key.id);
 
-  // runTransaction: (params) => firestore.runTransaction(params),
-  // db: {
-  const getDoc: GetDoc<GetDocError> = async (key) =>
-    eitherMapRight(
-      await getDocRef(key)
-        .get()
-        .then((docSnapshot) => Right(optionFromNullable(docSnapshot.data())))
-        .catch((reason) => Left(FirebaseGetDocError({ reason }))),
-      (doc) =>
-        eitherFold<Either<GetDocError, Doc>, FirestoreToDocError, Doc>(
-          firestoreToDoc(doc),
-          (left) => Left(FirestoreToDocGetDocError({ ...left })),
-          (doc) => Right(doc)
-        )
-    );
-
-  const updateDoc: UpdateDoc<FirebaseUpdateDocError> = ({ key, writeDoc }) =>
-    getDocRef(key)
-      .update(writeToFirestoreUpdateDocData({ firestoreFieldValue, writeDoc }))
-      .then((writeResult) => Right(writeResult))
-      .catch((reason) => Left(FirebaseUpdateDocError({ reason })));
-
-  const deleteDoc: DeleteDoc<FirebaseDeleteDocError> = (key) =>
-    getDocRef(key)
-      .delete()
-      .then((writeResult) => Right(writeResult))
-      .catch((reason) => Left(FirebaseDeleteDocError({ reason })));
-
-  const execOnRelDocs: ExecOnRelDocs = ({ refedId, referCol, referField }, exec) =>
-    firestore
-      .collection(referCol)
-      .where(`${referField}.${ID_FIELD}`, '==', refedId)
-      .get()
-      .then((querySnapshot) => Promise.all(querySnapshot.docs.map(({ id }) => exec(id))));
-
   const transactionCommit = await getTransactionCommit<S>({
     actionTrigger,
-    getDoc,
+    getDoc: async (key) =>
+      eitherMapRight(
+        await getDocRef(key)
+          .get()
+          .then((docSnapshot) => Right(optionFromNullable(docSnapshot.data())))
+          .catch((reason) => Left(FirebaseGetDocError({ reason }))),
+        (doc) =>
+          eitherFold<Either<GetDocError, Doc>, FirestoreToDocError, Doc>(
+            firestoreToDoc(doc),
+            (left) => Left(FirestoreToDocGetDocError({ ...left })),
+            (doc) => Right(doc)
+          )
+      ),
     snapshot,
   });
   if (isLeft(transactionCommit)) {
@@ -186,10 +159,23 @@ async function runTrigger<S extends TriggerSnapshot>({
   }
   execPropagationOps({
     actionTrigger,
-    deleteDoc,
-    execOnRelDocs,
+    deleteDoc: (key) =>
+      getDocRef(key)
+        .delete()
+        .then((writeResult) => Right(writeResult))
+        .catch((reason) => Left(FirebaseDeleteDocError({ reason }))),
+    execOnRelDocs: ({ refedId, referCol, referField }, exec) =>
+      firestore
+        .collection(referCol)
+        .where(`${referField}.${ID_FIELD}`, '==', refedId)
+        .get()
+        .then((querySnapshot) => Promise.all(querySnapshot.docs.map(({ id }) => exec(id)))),
     snapshot,
-    updateDoc,
+    updateDoc: ({ key, writeDoc }) =>
+      getDocRef(key)
+        .update(writeToFirestoreUpdateDocData({ firestoreFieldValue, writeDoc }))
+        .then((writeResult) => Right(writeResult))
+        .catch((reason) => Left(FirebaseUpdateDocError({ reason }))),
   });
 }
 
