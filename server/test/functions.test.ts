@@ -114,6 +114,7 @@ describe('getFirebaseTriggers', () => {
 
   const user1Key = { col: 'user', id: 'user1' };
   const memeImage1key = { col: 'memeImage', id: 'memeImage1' };
+  const meme1key = { col: 'meme', id: 'meme1' };
 
   it('user on create trigger exists', () => {
     expect(userOnCreateTrigger).toBeDefined();
@@ -127,8 +128,8 @@ describe('getFirebaseTriggers', () => {
     expect(memeOnCreateTrigger).toBeDefined();
   });
 
+  const user1creationTime = new Date().getTime();
   it('can create user1', async () => {
-    const user1creationTime = new Date().getTime();
     await createDoc(
       user1Key,
       {
@@ -152,8 +153,8 @@ describe('getFirebaseTriggers', () => {
     });
   });
 
+  const memeImage1creationTime = new Date().getTime();
   it('user1 can create memeImage1', async () => {
-    const memeImage1creationTime = new Date().getTime();
     await createDoc(
       memeImage1key,
       {
@@ -174,6 +175,69 @@ describe('getFirebaseTriggers', () => {
         profilePicture: {
           url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
         },
+      },
+    });
+
+    expect(await getDoc(user1Key)).toStrictEqual({
+      displayName: 'user1',
+      joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
+      memeCreatedCount: 0,
+      memeImageCreatedCount: 1,
+      profilePicture: {
+        url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+      },
+    });
+  });
+
+  const meme1creationTime = new Date().getTime();
+  it('user1 can create meme1', async () => {
+    await createDoc(
+      meme1key,
+      {
+        _fromClient: true,
+        memeImage: { _id: 'memeImage1' },
+        owner: { _id: 'user1' },
+        text: 'L eats banana',
+      },
+      memeOnCreateTrigger
+    );
+
+    expect(await getDoc(meme1key)).toStrictEqual({
+      creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
+      memeImage: {
+        _id: 'memeImage1',
+        image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+      },
+      owner: {
+        _id: 'user1',
+        displayName: 'user1',
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      },
+      text: 'L eats banana',
+    });
+
+    expect(await getDoc(memeImage1key)).toStrictEqual({
+      creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
+      image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+      memeCreatedCount: 1,
+      owner: {
+        _id: 'user1',
+        displayName: 'user1',
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      },
+    });
+
+    expect(await getDoc(user1Key)).toStrictEqual({
+      displayName: 'user1',
+      joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
+      memeCreatedCount: 1,
+      memeImageCreatedCount: 1,
+      profilePicture: {
+        url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
       },
     });
   });
