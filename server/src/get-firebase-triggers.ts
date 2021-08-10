@@ -39,10 +39,7 @@ import {
   ID_FIELD,
   TransactionResult,
 } from './type';
-import {
-  writeToFirestoreSetDocData,
-  writeToFirestoreUpdateDocData,
-} from './write-to-firestore-doc';
+import { writeToFirestoreUpdateDocData } from './write-to-firestore-doc';
 
 type GetDocRef = (key: DocKey) => admin.firestore.DocumentReference;
 
@@ -99,14 +96,15 @@ async function runTrigger<S extends TriggerSnapshot>({
               Object.fromEntries(
                 await Promise.all(
                   Object.entries(colDocs).map<Promise<readonly [string, boolean]>>(
-                    async ([docId, docCommit]) => {
-                      if (docCommit._op === 'Update' && docCommit.onDocAbsent === 'doNotUpdate') {
-                        const snapshot = await transaction.get(
-                          getDocRef({ col: colName, id: docId })
-                        );
-                        return [docId, snapshot.exists];
-                      }
-                      return [docId, false];
+                    async ([docId]) => {
+                      // if (docCommit._op === 'Update' &&
+                      // docCommit.onDocAbsent === 'doNotUpdate') {
+                      const snapshot = await transaction.get(
+                        getDocRef({ col: colName, id: docId })
+                      );
+                      return [docId, snapshot.exists];
+                      // }
+                      // return [docId, false];
                     }
                   )
                 )
@@ -131,17 +129,17 @@ async function runTrigger<S extends TriggerSnapshot>({
                   })
                 );
               }
-              return;
             }
-            if (docCommit.onDocAbsent === 'createDoc') {
-              transaction.set(
-                ref,
-                writeToFirestoreSetDocData({ firestoreFieldValue, writeDoc: docCommit.writeDoc }),
-                {
-                  merge: true,
-                }
-              );
-            }
+            // if (docCommit.onDocAbsent === 'createDoc') {
+            //   transaction.set(
+            //     ref,
+            //     writeToFirestoreSetDocData({ firestoreFieldValue,
+            // writeDoc: docCommit.writeDoc }),
+            //     {
+            //       merge: true,
+            //     }
+            //   );
+            // }
           }
         });
       });

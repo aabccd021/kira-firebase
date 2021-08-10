@@ -1,12 +1,6 @@
 import { RefUpdateField, WriteDoc, WriteField } from 'kira-core';
 
-import {
-  FirestoreFieldValue,
-  FirestoreSetDoc,
-  FirestoreSetField,
-  FirestoreUpdateDoc,
-  FirestoreUpdateField,
-} from './type';
+import { FirestoreFieldValue, FirestoreUpdateDoc, FirestoreUpdateField } from './type';
 
 function writeToFirestoreUpdateField({
   field,
@@ -30,34 +24,34 @@ function writeToFirestoreUpdateField({
   return firestoreFieldValue.serverTimestamp();
 }
 
-function writeToFirestoreSetField({
-  field,
-  firestoreFieldValue,
-}: {
-  readonly field: WriteField;
-  readonly firestoreFieldValue: FirestoreFieldValue;
-}): FirestoreSetField {
-  if (field._type === 'RefUpdate') {
-    // eslint-disable-next-line no-use-before-define
-    return writeToFirestoreSetDocData({ firestoreFieldValue, writeDoc: field.doc });
-  }
-  return writeToFirestoreUpdateField({ field, firestoreFieldValue });
-}
+// function writeToFirestoreSetField({
+//   field,
+//   firestoreFieldValue,
+// }: {
+//   readonly field: WriteField;
+//   readonly firestoreFieldValue: FirestoreFieldValue;
+// }): FirestoreSetField {
+//   if (field._type === 'RefUpdate') {
+//     // eslint-disable-next-line no-use-before-define
+//     return writeToFirestoreSetDocData({ firestoreFieldValue, writeDoc: field.doc });
+//   }
+//   return writeToFirestoreUpdateField({ field, firestoreFieldValue });
+// }
 
-export function writeToFirestoreSetDocData({
-  writeDoc,
-  firestoreFieldValue,
-}: {
-  readonly firestoreFieldValue: FirestoreFieldValue;
-  readonly writeDoc: WriteDoc;
-}): FirestoreSetDoc {
-  return Object.fromEntries(
-    Object.entries(writeDoc).map<readonly [string, FirestoreSetField]>(([fieldName, field]) => [
-      fieldName,
-      writeToFirestoreSetField({ field, firestoreFieldValue }),
-    ])
-  );
-}
+// export function writeToFirestoreSetDocData({
+//   writeDoc,
+//   firestoreFieldValue,
+// }: {
+//   readonly firestoreFieldValue: FirestoreFieldValue;
+//   readonly writeDoc: WriteDoc;
+// }): FirestoreSetDoc {
+//   return Object.fromEntries(
+//     Object.entries(writeDoc).map<readonly [string, FirestoreSetField]>(([fieldName, field]) => [
+//       fieldName,
+//       writeToFirestoreSetField({ field, firestoreFieldValue }),
+//     ])
+//   );
+// }
 
 export function writeToFirestoreUpdateDocData({
   writeDoc,

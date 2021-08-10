@@ -28,6 +28,9 @@ describe('getFirebaseTriggers', () => {
     firestore: admin.firestore(),
     firestoreFieldValue: admin.firestore.FieldValue,
     spec: {
+      independent: {
+        foo: { _type: 'String' },
+      },
       meme: {
         creationTime: {
           _type: 'CreationTime',
