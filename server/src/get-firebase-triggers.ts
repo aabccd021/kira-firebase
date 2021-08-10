@@ -5,7 +5,6 @@ import { Doc, DocKey, FieldSpec } from 'kira-core';
 import {
   ActionTrigger,
   BuildDraft,
-  ColTrigger,
   execPropagationOps,
   GetDocError,
   getTransactionCommit,
@@ -28,7 +27,6 @@ import {
 import { firestoreToDoc } from './firestore-to-doc';
 import { shouldRunTrigger } from './should-run-trigger';
 import {
-  ColFirebaseTrigger,
   FirebaseDeleteDocError,
   FirebaseGetDocError,
   FirebaseTrigger,
@@ -66,12 +64,16 @@ async function runTrigger<S extends TriggerSnapshot>({
             Right(
               optionFold(
                 optionFromNullable(docSnapshot.data()),
+                /* istanbul ignore next */
                 () => ({}),
                 (doc) => doc
               )
             )
           )
-          .catch((reason) => Left(FirebaseGetDocError({ reason }))),
+          .catch(
+            /* istanbul ignore next */
+            (reason) => Left(FirebaseGetDocError({ reason }))
+          ),
         (doc) =>
           eitherFold<Either<GetDocError, Doc>, FirestoreToDocError, Doc>(
             firestoreToDoc(doc),
@@ -125,19 +127,19 @@ async function runTrigger<S extends TriggerSnapshot>({
       Object.entries(transactionCommit.right).forEach(([colName, docs]) => {
         Object.entries(docs).forEach(([docId, docCommit]) => {
           const ref = getDocRef({ col: colName, id: docId });
-          if (docCommit._op === 'Update') {
-            if (docCommit.onDocAbsent === 'doNotUpdate') {
-              const docExists = docsExistsDict[colName]?.[docId] ?? false;
-              if (docExists) {
-                transaction.update(
-                  ref,
-                  writeToFirestoreUpdateDocData({
-                    firestoreFieldValue,
-                    writeDoc: docCommit.writeDoc,
-                  })
-                );
-              }
-            }
+          // if (docCommit._op === 'Update') {
+          // if (docCommit.onDocAbsent === 'doNotUpdate') {
+          const docExists = docsExistsDict[colName]?.[docId] ?? false;
+          if (docExists) {
+            transaction.update(
+              ref,
+              writeToFirestoreUpdateDocData({
+                firestoreFieldValue,
+                writeDoc: docCommit.writeDoc,
+              })
+            );
+            // }
+            // }
             // if (docCommit.onDocAbsent === 'createDoc') {
             //   transaction.set(
             //     ref,
@@ -153,7 +155,11 @@ async function runTrigger<S extends TriggerSnapshot>({
       });
     })
     .then(() => ({ success: true }))
-    .catch(() => ({ success: false }));
+    .catch(
+      /* istanbul ignore next */
+      () => ({ success: false })
+    );
+  /* istanbul ignore next */
   if (!transactionResult.success) {
     functions.logger.error('Failed to get transaction commit', {
       actionTrigger,
@@ -169,7 +175,10 @@ async function runTrigger<S extends TriggerSnapshot>({
       getDocRef(key)
         .delete()
         .then((writeResult) => Right(writeResult))
-        .catch((reason) => Left(FirebaseDeleteDocError({ reason }))),
+        .catch(
+          /* istanbul ignore next */
+          (reason) => Left(FirebaseDeleteDocError({ reason }))
+        ),
     execOnRelDocs: ({ refedId, referCol, referField }, exec) =>
       firestore
         .collection(referCol)
@@ -181,7 +190,10 @@ async function runTrigger<S extends TriggerSnapshot>({
       getDocRef(key)
         .update(writeToFirestoreUpdateDocData({ firestoreFieldValue, writeDoc }))
         .then((writeResult) => Right(writeResult))
-        .catch((reason) => Left(FirebaseUpdateDocError({ reason }))),
+        .catch(
+          /* istanbul ignore next */
+          (reason) => Left(FirebaseUpdateDocError({ reason }))
+        ),
   });
 }
 
@@ -201,87 +213,82 @@ export function getFirebaseTriggers({
   const trigger = getTrigger({ buildDraft, spec });
 
   return Object.fromEntries(
-    Object.entries(spec).map(([colName]) =>
-      optionFold<readonly [string, ColFirebaseTrigger | undefined], ColTrigger>(
-        optionFromNullable(trigger[colName]),
-        () => [colName, undefined],
-        (colTrigger) => {
-          const docKey = `${colName}/{docId}`;
+    Object.entries(trigger).map(([colName, colTrigger]) => {
+      const docKey = `${colName}/{docId}`;
 
-          const firestoreColTrigger: DocumentBuilder = triggerRegions
-            ? functions.region(...triggerRegions).firestore.document(docKey)
-            : functions.firestore.document(docKey);
+      const firestoreColTrigger: DocumentBuilder = triggerRegions
+        ? /* istanbul ignore next */
+          functions.region(...triggerRegions).firestore.document(docKey)
+        : functions.firestore.document(docKey);
 
-          return [
-            colName,
-            {
-              onCreate: optionFold(
-                colTrigger.onCreate,
-                () => undefined,
-                (onCreateTrigger) =>
-                  firestoreColTrigger.onCreate(async (snapshot) => {
-                    if (await shouldRunTrigger(snapshot)) {
-                      const doc = firestoreToDoc(snapshot.data());
-                      if (isRight(doc)) {
-                        await runTrigger({
-                          actionTrigger: onCreateTrigger,
-                          firestore,
-                          firestoreFieldValue,
-                          snapshot: {
-                            doc: doc.right,
-                            id: snapshot.id,
-                          },
-                        });
-                      }
-                    }
-                  })
-              ),
-              onDelete: optionFold(
-                colTrigger.onDelete,
-                () => undefined,
-                (onDeleteTrigger) =>
-                  firestoreColTrigger.onDelete(async (snapshot) => {
-                    const doc = firestoreToDoc(snapshot.data());
-                    if (isRight(doc)) {
-                      await runTrigger({
-                        actionTrigger: onDeleteTrigger,
-                        firestore,
-                        firestoreFieldValue,
-                        snapshot: {
-                          doc: doc.right,
-                          id: snapshot.id,
-                        },
-                      });
-                    }
-                  })
-              ),
-              onUpdate: optionFold(
-                colTrigger.onUpdate,
-                () => undefined,
-                (onUpdateTrigger) =>
-                  firestoreColTrigger.onUpdate(async (snapshot) => {
-                    if (await shouldRunTrigger(snapshot.after)) {
-                      const before = firestoreToDoc(snapshot.before.data());
-                      const after = firestoreToDoc(snapshot.after.data());
-                      if (isRight(before) && isRight(after)) {
-                        await runTrigger({
-                          actionTrigger: onUpdateTrigger,
-                          firestore,
-                          firestoreFieldValue,
-                          snapshot: {
-                            after: after.right,
-                            before: before.right,
-                            id: snapshot.after.id,
-                          },
-                        });
-                      }
-                    }
-                  })
-              ),
-            },
-          ];
-        }
-      )
-    )
+      return [
+        colName,
+        {
+          onCreate: optionFold(
+            colTrigger.onCreate,
+            () => undefined,
+            (onCreateTrigger) =>
+              firestoreColTrigger.onCreate(async (snapshot) => {
+                if (await shouldRunTrigger(snapshot)) {
+                  const doc = firestoreToDoc(snapshot.data());
+                  if (isRight(doc)) {
+                    await runTrigger({
+                      actionTrigger: onCreateTrigger,
+                      firestore,
+                      firestoreFieldValue,
+                      snapshot: {
+                        doc: doc.right,
+                        id: snapshot.id,
+                      },
+                    });
+                  }
+                }
+              })
+          ),
+          onDelete: optionFold(
+            colTrigger.onDelete,
+            () => undefined,
+            (onDeleteTrigger) =>
+              firestoreColTrigger.onDelete(async (snapshot) => {
+                const doc = firestoreToDoc(snapshot.data());
+                if (isRight(doc)) {
+                  await runTrigger({
+                    actionTrigger: onDeleteTrigger,
+                    firestore,
+                    firestoreFieldValue,
+                    snapshot: {
+                      doc: doc.right,
+                      id: snapshot.id,
+                    },
+                  });
+                }
+              })
+          ),
+          onUpdate: optionFold(
+            colTrigger.onUpdate,
+            () => undefined,
+            (onUpdateTrigger) =>
+              firestoreColTrigger.onUpdate(async (snapshot) => {
+                if (await shouldRunTrigger(snapshot.after)) {
+                  const before = firestoreToDoc(snapshot.before.data());
+                  const after = firestoreToDoc(snapshot.after.data());
+                  if (isRight(before) && isRight(after)) {
+                    await runTrigger({
+                      actionTrigger: onUpdateTrigger,
+                      firestore,
+                      firestoreFieldValue,
+                      snapshot: {
+                        after: after.right,
+                        before: before.right,
+                        id: snapshot.after.id,
+                      },
+                    });
+                  }
+                }
+              })
+          ),
+        },
+      ];
+    })
   );
 }

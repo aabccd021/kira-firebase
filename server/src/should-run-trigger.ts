@@ -12,7 +12,7 @@ export const FROM_CLIENT_FLAG = '_fromClient';
  */
 export async function shouldRunTrigger(snapshot: QueryDocumentSnapshot): Promise<boolean> {
   // Stop functions if has no client flag
-  if (snapshot.data()?.[FROM_CLIENT_FLAG] !== true) {
+  if (snapshot.data()[FROM_CLIENT_FLAG] !== true) {
     return false;
   }
   // Remove flag
