@@ -9,33 +9,43 @@ import * as functions from 'firebase-functions';
 import { Change } from 'firebase-functions';
 import { QueryDocumentSnapshot } from 'firebase-functions/lib/providers/firestore';
 import * as functionsTest from 'firebase-functions-test';
-import { DocKey } from 'kira-core';
 import { Dict } from 'trimop';
 
 export const test = functionsTest({ projectId });
 
 export async function createDoc(
-  key: DocKey,
+  ref: string,
   snapshot: Dict<unknown>,
   trigger?: functions.CloudFunction<QueryDocumentSnapshot>
 ): Promise<void> {
   if (trigger === undefined) {
     throw Error();
   }
-  const ref = `/${key.col}/${key.id}`;
   await admin.firestore().doc(ref).set(snapshot);
   await test.wrap(trigger)(test.firestore.makeDocumentSnapshot(snapshot, ref));
 }
 
+export async function deleteDoc(
+  ref: string,
+  trigger?: functions.CloudFunction<QueryDocumentSnapshot>
+): Promise<void> {
+  if (trigger === undefined) {
+    throw Error();
+  }
+  const docRef = admin.firestore().doc(ref);
+  const snapshot = (await docRef.get().then((snap) => snap.data())) ?? {};
+  await docRef.delete();
+  await test.wrap(trigger)(test.firestore.makeDocumentSnapshot(snapshot, ref));
+}
+
 export async function setMergeDoc(
-  key: DocKey,
+  ref: string,
   snapshot: Dict<unknown>,
   trigger?: functions.CloudFunction<Change<QueryDocumentSnapshot>>
 ): Promise<void> {
   if (trigger === undefined) {
     throw Error();
   }
-  const ref = `/${key.col}/${key.id}`;
 
   const docRef = admin.firestore().doc(ref);
 
@@ -49,15 +59,6 @@ export async function setMergeDoc(
       test.firestore.makeDocumentSnapshot(after, ref)
     )
   );
-}
-
-export async function getDoc(key: DocKey): Promise<admin.firestore.DocumentData | undefined> {
-  return admin
-    .firestore()
-    .collection(key.col)
-    .doc(key.id)
-    .get()
-    .then((snap) => snap.data());
 }
 
 export function sleep(milli: number): Promise<unknown> {

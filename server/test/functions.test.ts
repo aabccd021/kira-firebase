@@ -3,7 +3,7 @@ import { makeCountDraft, makeCreationTimeDraft, makeRefDraft } from 'kira-nosql'
 import { None } from 'trimop';
 
 import { getFirebaseTriggers } from '../src';
-import { almostEqualTimeWith, createDoc, getDoc, setMergeDoc, sleep, test } from './util';
+import { almostEqualTimeWith, createDoc, deleteDoc, setMergeDoc, sleep, test } from './util';
 
 describe('getFirebaseTriggers', () => {
   afterAll(test.cleanup);
@@ -115,9 +115,9 @@ describe('getFirebaseTriggers', () => {
   const memeImageTrigger = triggers['memeImage'];
   const memeTrigger = triggers['meme'];
 
-  const user1Key = { col: 'user', id: 'user1' };
-  const memeImage1key = { col: 'memeImage', id: 'memeImage1' };
-  const meme1key = { col: 'meme', id: 'meme1' };
+  const user1Ref = '/user/user1';
+  const memeImage1Ref = '/memeImage/memeImage1';
+  const meme1Ref = '/meme/meme1';
 
   let user1creationTime: number | undefined;
   let meme1creationTime: number | undefined;
@@ -138,7 +138,7 @@ describe('getFirebaseTriggers', () => {
 
     it('trigger does not run on create if no `_fromClient`', async () => {
       await createDoc(
-        user1Key,
+        user1Ref,
         {
           displayName: 'user21',
           profilePicture: {
@@ -148,7 +148,13 @@ describe('getFirebaseTriggers', () => {
         userTrigger?.onCreate
       );
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'user21',
         profilePicture: {
           url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
@@ -159,7 +165,7 @@ describe('getFirebaseTriggers', () => {
     user1creationTime = new Date().getTime();
     it('can create user1', async () => {
       await createDoc(
-        user1Key,
+        user1Ref,
         {
           _fromClient: true,
           displayName: 'user1',
@@ -170,7 +176,13 @@ describe('getFirebaseTriggers', () => {
         userTrigger?.onCreate
       );
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'user1',
         joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
         memeCreatedCount: 0,
@@ -184,7 +196,7 @@ describe('getFirebaseTriggers', () => {
     memeImage1creationTime = new Date().getTime();
     it('user1 can create memeImage1', async () => {
       await createDoc(
-        memeImage1key,
+        memeImage1Ref,
         {
           _fromClient: true,
           image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
@@ -193,7 +205,13 @@ describe('getFirebaseTriggers', () => {
         memeImageTrigger?.onCreate
       );
 
-      expect(await getDoc(memeImage1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
         image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
         memeCreatedCount: 0,
@@ -206,7 +224,13 @@ describe('getFirebaseTriggers', () => {
         },
       });
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'user1',
         joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
         memeCreatedCount: 0,
@@ -220,7 +244,7 @@ describe('getFirebaseTriggers', () => {
     meme1creationTime = new Date().getTime();
     it('user1 can create meme1', async () => {
       await createDoc(
-        meme1key,
+        meme1Ref,
         {
           _fromClient: true,
           memeImage: { _id: 'memeImage1' },
@@ -230,7 +254,13 @@ describe('getFirebaseTriggers', () => {
         memeTrigger?.onCreate
       );
 
-      expect(await getDoc(meme1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(meme1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
         memeImage: {
           _id: 'memeImage1',
@@ -246,7 +276,13 @@ describe('getFirebaseTriggers', () => {
         text: 'L eats banana',
       });
 
-      expect(await getDoc(memeImage1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
         image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
         memeCreatedCount: 1,
@@ -259,7 +295,13 @@ describe('getFirebaseTriggers', () => {
         },
       });
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'user1',
         joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
         memeCreatedCount: 1,
@@ -286,7 +328,7 @@ describe('getFirebaseTriggers', () => {
 
     it('user1 can updates his display name', async () => {
       await setMergeDoc(
-        user1Key,
+        user1Ref,
         {
           _fromClient: true,
           displayName: 'kira masumoto',
@@ -295,7 +337,13 @@ describe('getFirebaseTriggers', () => {
       );
       await sleep(5000);
 
-      expect(await getDoc(meme1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(meme1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
         memeImage: {
           _id: 'memeImage1',
@@ -311,7 +359,13 @@ describe('getFirebaseTriggers', () => {
         text: 'L eats banana',
       });
 
-      expect(await getDoc(memeImage1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
         image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
         memeCreatedCount: 1,
@@ -324,7 +378,13 @@ describe('getFirebaseTriggers', () => {
         },
       });
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'kira masumoto',
         joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
         memeCreatedCount: 1,
@@ -337,7 +397,7 @@ describe('getFirebaseTriggers', () => {
 
     it('can update memeImage1 url', async () => {
       await setMergeDoc(
-        memeImage1key,
+        memeImage1Ref,
         {
           _fromClient: true,
           image: {
@@ -348,7 +408,13 @@ describe('getFirebaseTriggers', () => {
       );
       await sleep(5000);
 
-      expect(await getDoc(meme1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(meme1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
         memeImage: {
           _id: 'memeImage1',
@@ -366,7 +432,13 @@ describe('getFirebaseTriggers', () => {
         text: 'L eats banana',
       });
 
-      expect(await getDoc(memeImage1key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
         image: {
           url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
@@ -381,7 +453,13 @@ describe('getFirebaseTriggers', () => {
         },
       });
 
-      expect(await getDoc(user1Key)).toStrictEqual({
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
         displayName: 'kira masumoto',
         joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
         memeCreatedCount: 1,
@@ -390,6 +468,50 @@ describe('getFirebaseTriggers', () => {
           url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
         },
       });
+    }, 10000);
+  });
+
+  describe('on delete', () => {
+    it('user trigger exists', () => {
+      expect(userTrigger?.onDelete).toBeDefined();
+    });
+
+    it('memeImage trigger exists', () => {
+      expect(memeImageTrigger?.onDelete).toBeDefined();
+    });
+
+    it('meme trigger exists', () => {
+      expect(memeTrigger?.onDelete).toBeDefined();
+    });
+
+    it('user1 can be deleted', async () => {
+      await deleteDoc(user1Ref, userTrigger?.onDelete);
+
+      await sleep(5000);
+
+      expect(
+        await admin
+          .firestore()
+          .doc(meme1Ref)
+          .get()
+          .then((snap) => snap.exists)
+      ).toStrictEqual(false);
+
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage1Ref)
+          .get()
+          .then((snap) => snap.exists)
+      ).toStrictEqual(false);
+
+      expect(
+        await admin
+          .firestore()
+          .doc(user1Ref)
+          .get()
+          .then((snap) => snap.exists)
+      ).toStrictEqual(false);
     }, 10000);
   });
 });
