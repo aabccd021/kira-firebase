@@ -62,7 +62,15 @@ async function runTrigger<S extends TriggerSnapshot>({
       eitherMapRight(
         await getDocRef(key)
           .get()
-          .then((docSnapshot) => Right(optionFromNullable(docSnapshot.data())))
+          .then((docSnapshot) =>
+            Right(
+              optionFold(
+                optionFromNullable(docSnapshot.data()),
+                () => ({}),
+                (doc) => doc
+              )
+            )
+          )
           .catch((reason) => Left(FirebaseGetDocError({ reason }))),
         (doc) =>
           eitherFold<Either<GetDocError, Doc>, FirestoreToDocError, Doc>(
@@ -213,7 +221,7 @@ export function getFirebaseTriggers({
                 (onCreateTrigger) =>
                   firestoreColTrigger.onCreate(async (snapshot) => {
                     if (await shouldRunTrigger(snapshot)) {
-                      const doc = firestoreToDoc(optionFromNullable(snapshot.data()));
+                      const doc = firestoreToDoc(snapshot.data());
                       if (isRight(doc)) {
                         await runTrigger({
                           actionTrigger: onCreateTrigger,
@@ -233,7 +241,7 @@ export function getFirebaseTriggers({
                 () => undefined,
                 (onDeleteTrigger) =>
                   firestoreColTrigger.onDelete(async (snapshot) => {
-                    const doc = firestoreToDoc(optionFromNullable(snapshot.data()));
+                    const doc = firestoreToDoc(snapshot.data());
                     if (isRight(doc)) {
                       await runTrigger({
                         actionTrigger: onDeleteTrigger,
@@ -253,8 +261,8 @@ export function getFirebaseTriggers({
                 (onUpdateTrigger) =>
                   firestoreColTrigger.onUpdate(async (snapshot) => {
                     if (await shouldRunTrigger(snapshot.after)) {
-                      const before = firestoreToDoc(optionFromNullable(snapshot.before.data()));
-                      const after = firestoreToDoc(optionFromNullable(snapshot.after.data()));
+                      const before = firestoreToDoc(snapshot.before.data());
+                      const after = firestoreToDoc(snapshot.after.data());
                       if (isRight(before) && isRight(after)) {
                         await runTrigger({
                           actionTrigger: onUpdateTrigger,

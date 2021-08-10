@@ -8,17 +8,7 @@ import {
   RefField,
   StringField,
 } from 'kira-core';
-import {
-  Either,
-  eitherArrayReduce,
-  eitherMapRight,
-  isStringArray,
-  Left,
-  Option,
-  optionFold,
-  Right,
-  Some,
-} from 'trimop';
+import { Either, eitherArrayReduce, eitherMapRight, isStringArray, Left, Right } from 'trimop';
 
 import { FROM_CLIENT_FLAG } from './should-run-trigger';
 import {
@@ -50,57 +40,48 @@ function isRefFirestoreField(field: FirestoreField): field is RefFirestoreField 
 }
 
 /**
- * FirestoreToDocError
- */
-
-/**
  *
  * @param doc
  * @returns
  */
-export function firestoreToDoc(doc: Option<FirestoreDoc>): Either<FirestoreToDocError, Doc> {
-  return optionFold(
-    doc,
-    () => Right({}),
-    (doc) =>
-      eitherArrayReduce(
-        Object.entries(doc).filter(([fieldName]) => fieldName !== FROM_CLIENT_FLAG),
-        Right({}),
-        (acc, [fieldName, field]) => {
-          if (typeof field === 'string') {
-            return Right({
-              ...acc,
-              [fieldName]: StringField(field),
-            });
-          }
-          if (typeof field === 'number') {
-            return Right({
-              ...acc,
-              [fieldName]: NumberField(field),
-            });
-          }
-          if (field instanceof firestore.Timestamp) {
-            return Right({
-              ...acc,
-              [fieldName]: DateField(field.toDate()),
-            });
-          }
-          if (isImageFieldValue(field)) {
-            return Right({
-              ...acc,
-              [fieldName]: ImageField(field),
-            });
-          }
-          if (isRefFirestoreField(field)) {
-            return eitherMapRight(firestoreToDoc(Some(field)), (doc) =>
-              Right({
-                ...acc,
-                [fieldName]: RefField({ doc, id: field[ID_FIELD] }),
-              })
-            );
-          }
-          return Left({ doc, field, fieldName });
-        }
-      )
+export function firestoreToDoc(doc: FirestoreDoc): Either<FirestoreToDocError, Doc> {
+  return eitherArrayReduce(
+    Object.entries(doc).filter(([fieldName]) => fieldName !== FROM_CLIENT_FLAG),
+    Right({}),
+    (acc, [fieldName, field]) => {
+      if (typeof field === 'string') {
+        return Right({
+          ...acc,
+          [fieldName]: StringField(field),
+        });
+      }
+      if (typeof field === 'number') {
+        return Right({
+          ...acc,
+          [fieldName]: NumberField(field),
+        });
+      }
+      if (field instanceof firestore.Timestamp) {
+        return Right({
+          ...acc,
+          [fieldName]: DateField(field.toDate()),
+        });
+      }
+      if (isImageFieldValue(field)) {
+        return Right({
+          ...acc,
+          [fieldName]: ImageField(field),
+        });
+      }
+      if (isRefFirestoreField(field)) {
+        return eitherMapRight(firestoreToDoc(field), (doc) =>
+          Right({
+            ...acc,
+            [fieldName]: RefField({ doc, id: field[ID_FIELD] }),
+          })
+        );
+      }
+      return Left({ doc, field, fieldName });
+    }
   );
 }

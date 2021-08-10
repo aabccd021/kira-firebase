@@ -136,6 +136,26 @@ describe('getFirebaseTriggers', () => {
       expect(memeTrigger?.onCreate).toBeDefined();
     });
 
+    it('trigger does not run on create if no `_fromClient`', async () => {
+      await createDoc(
+        user1Key,
+        {
+          displayName: 'user21',
+          profilePicture: {
+            url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+        userTrigger?.onCreate
+      );
+
+      expect(await getDoc(user1Key)).toStrictEqual({
+        displayName: 'user21',
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      });
+    });
+
     user1creationTime = new Date().getTime();
     it('can create user1', async () => {
       await createDoc(

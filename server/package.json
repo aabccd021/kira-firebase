@@ -63,6 +63,7 @@
       "**/test/**/*.test.ts"
     ],
     "coveragePathIgnorePatterns": [
+      "src/type.ts",
       "test/"
     ],
     "setupFilesAfterEnv": [
