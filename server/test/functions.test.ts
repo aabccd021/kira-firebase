@@ -310,6 +310,63 @@ describe('getFirebaseTriggers', () => {
           url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
         },
       });
-    }, 15000);
+    }, 10000);
+
+    it('can update memeImage1 url', async () => {
+      await setMergeDoc(
+        memeImage1key,
+        {
+          _fromClient: true,
+          image: {
+            url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+          },
+        },
+        memeImageTrigger?.onUpdate
+      );
+      await sleep(5000);
+
+      expect(await getDoc(meme1key)).toStrictEqual({
+        creationTime: expect.toSatisfy(almostEqualTimeWith(meme1creationTime)),
+        memeImage: {
+          _id: 'memeImage1',
+          image: {
+            url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+          },
+        },
+        owner: {
+          _id: 'user1',
+          displayName: 'kira masumoto',
+          profilePicture: {
+            url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+        text: 'L eats banana',
+      });
+
+      expect(await getDoc(memeImage1key)).toStrictEqual({
+        creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
+        image: {
+          url: 'https://sakurazaka46.com/images/14/018/c4e6c7ada458d9bdd8eefeee7acaf-01.jpg',
+        },
+        memeCreatedCount: 1,
+        owner: {
+          _id: 'user1',
+          displayName: 'kira masumoto',
+          profilePicture: {
+            url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+      });
+
+      expect(await getDoc(user1Key)).toStrictEqual({
+        displayName: 'kira masumoto',
+        joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
+        memeCreatedCount: 1,
+        memeImageCreatedCount: 1,
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      });
+    }, 10000);
   });
 });
