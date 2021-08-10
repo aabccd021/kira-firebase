@@ -137,8 +137,9 @@ describe('getFirebaseTriggers', () => {
     });
 
     it('trigger does not run on create if no `_fromClient`', async () => {
+      const user21Ref = '/user/user21';
       await createDoc(
-        user1Ref,
+        user21Ref,
         {
           displayName: 'user21',
           profilePicture: {
@@ -151,7 +152,7 @@ describe('getFirebaseTriggers', () => {
       expect(
         await admin
           .firestore()
-          .doc(user1Ref)
+          .doc(user21Ref)
           .get()
           .then((snap) => snap.data())
       ).toStrictEqual({
@@ -162,8 +163,46 @@ describe('getFirebaseTriggers', () => {
       });
     });
 
-    user1creationTime = new Date().getTime();
+    it('trigger does not run on create if doc is invalid', async () => {
+      const user22Ref = '/user/user22';
+      const memeImage22Ref = '/memeImage/memeImage22';
+      await createDoc(
+        user22Ref,
+        {
+          _fromClient: true,
+          displayName: 'user22',
+          profilePicture: {
+            // should be url
+            URL: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+          },
+        },
+        userTrigger?.onCreate
+      );
+
+      await createDoc(
+        memeImage22Ref,
+        {
+          _fromClient: true,
+          image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+          owner: { _id: 'user22' },
+        },
+        memeImageTrigger?.onCreate
+      );
+
+      expect(
+        await admin
+          .firestore()
+          .doc(memeImage22Ref)
+          .get()
+          .then((snap) => snap.data())
+      ).toStrictEqual({
+        image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+        owner: { _id: 'user22' },
+      });
+    });
+
     it('can create user1', async () => {
+      user1creationTime = new Date().getTime();
       await createDoc(
         user1Ref,
         {
@@ -193,8 +232,8 @@ describe('getFirebaseTriggers', () => {
       });
     });
 
-    memeImage1creationTime = new Date().getTime();
     it('user1 can create memeImage1', async () => {
+      memeImage1creationTime = new Date().getTime();
       await createDoc(
         memeImage1Ref,
         {
@@ -241,8 +280,8 @@ describe('getFirebaseTriggers', () => {
       });
     });
 
-    meme1creationTime = new Date().getTime();
     it('user1 can create meme1', async () => {
+      meme1creationTime = new Date().getTime();
       await createDoc(
         meme1Ref,
         {
