@@ -107,7 +107,9 @@
         ],
         "rules": {
           "no-null/no-null": "off",
-          "functional/prefer-readonly-type": "off"
+          "functional/prefer-readonly-type": "off",
+          "functional/no-throw-statement": "off",
+          "functional/no-let": "off"
         }
       }
     ],
