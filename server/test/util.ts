@@ -41,5 +41,11 @@ export function sleep(milli: number): Promise<unknown> {
 }
 
 export function almostEqualTimeWith(x2: number): (x1: unknown) => boolean {
-  return (x1) => x1 instanceof Date && x1.getTime() - x2 < 2000 && x1.getTime() - x2 >= 0;
+  return (x1) => {
+    if (x1 instanceof admin.firestore.Timestamp) {
+      const diff = x1.toDate().getTime() - x2;
+      return diff < 3000 && diff >= 0;
+    }
+    return false;
+  };
 }

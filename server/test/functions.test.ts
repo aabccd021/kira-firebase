@@ -3,9 +3,9 @@ import { makeCountDraft, makeCreationTimeDraft, makeRefDraft } from 'kira-nosql'
 import { None } from 'trimop';
 
 import { getFirebaseTriggers } from '../src';
-import { createDoc, getDoc, test } from './util';
+import { almostEqualTimeWith, createDoc, getDoc, test } from './util';
 
-describe('Unit tests', () => {
+describe('getFirebaseTriggers', () => {
   afterAll(test.cleanup);
 
   const triggers = getFirebaseTriggers({
@@ -108,18 +108,73 @@ describe('Unit tests', () => {
     },
   });
 
-  it('tests a Cloud Firestore function', async () => {
-    const userOnCreateTrigger = triggers['user']?.onCreate;
+  const userOnCreateTrigger = triggers['user']?.onCreate;
+  const memeImageOnCreateTrigger = triggers['memeImage']?.onCreate;
+  const memeOnCreateTrigger = triggers['meme']?.onCreate;
+
+  const user1Key = { col: 'user', id: 'user1' };
+  const memeImage1key = { col: 'memeImage', id: 'memeImage1' };
+
+  it('user on create trigger exists', () => {
     expect(userOnCreateTrigger).toBeDefined();
+  });
 
-    const key = { col: 'user', id: 'user1' };
-    await createDoc(key, { _fromClient: true, aab: 'ccd' }, userOnCreateTrigger);
+  it('memeImage on create trigger exists', () => {
+    expect(memeImageOnCreateTrigger).toBeDefined();
+  });
 
-    expect(await getDoc(key)).toStrictEqual({
-      aab: 'ccd',
-      joinedTime: expect.any(admin.firestore.Timestamp),
+  it('meme on create trigger exists', () => {
+    expect(memeOnCreateTrigger).toBeDefined();
+  });
+
+  it('can create user1', async () => {
+    const user1creationTime = new Date().getTime();
+    await createDoc(
+      user1Key,
+      {
+        _fromClient: true,
+        displayName: 'user1',
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      },
+      userOnCreateTrigger
+    );
+
+    expect(await getDoc(user1Key)).toStrictEqual({
+      displayName: 'user1',
+      joinedTime: expect.toSatisfy(almostEqualTimeWith(user1creationTime)),
       memeCreatedCount: 0,
       memeImageCreatedCount: 0,
+      profilePicture: {
+        url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+      },
     });
-  }, 5000);
+  });
+
+  it('user1 can create memeImage1', async () => {
+    const memeImage1creationTime = new Date().getTime();
+    await createDoc(
+      memeImage1key,
+      {
+        _fromClient: true,
+        image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+        owner: { _id: 'user1' },
+      },
+      memeImageOnCreateTrigger
+    );
+
+    expect(await getDoc(memeImage1key)).toStrictEqual({
+      creationTime: expect.toSatisfy(almostEqualTimeWith(memeImage1creationTime)),
+      image: { url: 'https://i.ytimg.com/vi/abuAVZ6LpzM/hqdefault.jpg' },
+      memeCreatedCount: 0,
+      owner: {
+        _id: 'user1',
+        displayName: 'user1',
+        profilePicture: {
+          url: 'https://sakurazaka46.com/images/14/eb2/a748ca8dac608af8edde85b62a5a8/1000_1000_102400.jpg',
+        },
+      },
+    });
+  });
 });
