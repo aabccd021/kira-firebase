@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { makeCountDraft, makeCreationTimeDraft, makeRefDraft } from 'kira-nosql';
+import { buildCountDraft, buildCreationTimeDraft, buildRefDraft } from 'kira-nosql';
 import { None } from 'trimop';
 
 import { getFirebaseTriggers } from '../src';
@@ -11,19 +11,15 @@ describe('getFirebaseTriggers', () => {
   const triggers = getFirebaseTriggers({
     buildDraft: ({ spec, context }) => {
       if (spec._type === 'Count') {
-        return makeCountDraft({ context, spec });
+        return buildCountDraft({ context, spec });
       }
       if (spec._type === 'Ref') {
-        return makeRefDraft({ context, spec });
+        return buildRefDraft({ context, spec });
       }
       if (spec._type === 'CreationTime') {
-        return makeCreationTimeDraft({ context, spec });
+        return buildCreationTimeDraft({ context, spec });
       }
-      return {
-        onCreate: None(),
-        onDelete: None(),
-        onUpdate: None(),
-      };
+      return None();
     },
     firestore: admin.firestore(),
     firestoreFieldValue: admin.firestore.FieldValue,
