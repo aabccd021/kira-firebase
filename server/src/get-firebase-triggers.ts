@@ -85,7 +85,6 @@ async function runTrigger<S extends TriggerSnapshot>({
   });
   if (isLeft(transactionCommit)) {
     functions.logger.error('Failed to get transaction commit', {
-      actionTrigger,
       snapshot,
       transactionCommit,
     });

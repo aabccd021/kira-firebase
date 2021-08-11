@@ -110,7 +110,8 @@
           "no-null/no-null": "off",
           "functional/prefer-readonly-type": "off",
           "functional/no-throw-statement": "off",
-          "functional/no-let": "off"
+          "functional/no-let": "off",
+          "functional/immutable-data": "off"
         }
       }
     ],

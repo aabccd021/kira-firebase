@@ -124,3 +124,8 @@ export function FirebaseDeleteDocError(
     _errorType: 'DeleteDocError',
   };
 }
+
+/**
+ *
+ */
+export type Migration = () => Promise<void>;
