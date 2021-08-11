@@ -22,7 +22,7 @@
     "test": "firebase emulators:exec --project demo-kira-firebase 'yarn jest --coverage --verbose --detectOpenHandles'",
     "latest": "yarn upgrade-interactive --latest",
     "please": "yarn tsc --noEmit && yarn lint --fix && yarn test ",
-    "pull-request": "git pull origin main --no-edit && npm version patch && git push && yarn open-cli https://github.com/aabccd021/kira-firebase-server/compare/main...$(git branch --show-current)"
+    "pull-request": "git pull origin main --no-edit && npm version patch && git push && yarn open-cli https://github.com/aabccd021/kira-firebase/compare/main...$(git branch --show-current)"
   },
   "dependencies": {
     "firebase-admin": "^9.11.0",
