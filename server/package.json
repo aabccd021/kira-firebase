@@ -1,6 +1,6 @@
 {
   "name": "kira-firebase-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Firebase Functions Trigger for Kira",
   "repository": "git@github.com:aabccd021/kira-firebase.git",
   "author": "aabccd021 <aabccd021@gmail.com>",
